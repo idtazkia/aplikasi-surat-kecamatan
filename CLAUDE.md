@@ -58,15 +58,48 @@ Antrian rekonsiliasi saat ini dipegang role **staf**. Bisa dipindah ke superviso
 - Pending-sync indicator: setiap staf harus melihat "N perubahan belum terupload" agar tidak menutup browser dengan data yang masih di IndexedDB.
 - Antrian rekonsiliasi duplikat: view khusus untuk role yang memegang rekonsiliasi.
 
+## Tech Stack
+
+### Backend
+- Go (latest stable), plain `net/http` dengan ServeMux (Go 1.22+ routing). **Tidak menggunakan web framework** (Gin/Echo/Fiber/chi).
+- Database driver: `jackc/pgx`
+- Query generation: `sqlc` — typed Go dari SQL
+- Migrations: `goose`
+- Validation: `go-playground/validator`
+- Auth: JWT + refresh token, roll manual di atas stdlib
+
+### Frontend
+- Vue 3 (Composition API) + Vite
+- State: Pinia
+- Router: Vue Router
+- PWA: `vite-plugin-pwa`
+- IndexedDB: Dexie.js
+- Query cache / offline sync: TanStack Query (Vue adapter)
+- UI/table library: pilih saat scaffold (PrimeVue / Naive UI / Element Plus)
+
+### Database
+- PostgreSQL
+
+### Deployment
+- Single VPS, ~1GB RAM / 1 vCPU tier
+- systemd service untuk Go binary, nginx reverse proxy, Let's Encrypt TLS
+- Tidak menggunakan Docker/Kubernetes
+
+### Alasan Pilihan Stack
+
+- **Plain Go, bukan Gin/Echo/Fiber**: Go 1.22 ServeMux menutup gap routing utama (method + path params native). Menghindari framework churn, dependency tree lebih kecil, mahasiswa kontributor belajar HTTP asli tanpa abstraksi framework.
+- **Vue, bukan React/Svelte**: komunitas Indonesia lebih besar, UI/table lib matang.
+- **Tanpa Docker**: single binary Go + systemd sudah deployable secara langsung. Menambahkan Docker tidak menyelesaikan masalah apapun di scope ini.
+
 ## Open Items Sebelum Mulai Koding
 
 - [ ] Nama kecamatan dan kontak resmi (Bu Camat, PIC staf)
 - [ ] MoU/kesepakatan kerja: kepemilikan data, SLA, cakupan maintenance, batasan liability
 - [ ] Jumlah staf yang akan jadi user (menentukan seeding role & ekspektasi beban)
-- [ ] Stack pilihan: backend, frontend, DB, deployment tooling
-- [ ] Hosting VPS: provider, region, backup strategy, monitoring
+- [ ] VPS provider dan region (backup strategy, monitoring mengikuti)
 - [ ] Retention policy untuk PDF (berapa lama disimpan, arsip offline, dsb.)
 - [ ] Data sensitivity review: surat pemerintah bisa mengandung data pribadi — tentukan enkripsi at-rest dan in-transit, akses log
+- [ ] UI library Vue yang dipilih
 
 ## Referensi
 
