@@ -84,71 +84,71 @@ Detail keputusan teknis: `CLAUDE.md`. Roadmap implementasi per fase: `ROADMAP.md
 
 ### Prerequisites
 
-| Tool | Versi | Cara install |
+| Tool | Versi | Wajib untuk |
 |---|---|---|
-| Go | 1.22+ | `brew install go` (macOS) / [go.dev/dl](https://go.dev/dl) |
-| Node.js | 20+ | `brew install node` / [nodejs.org](https://nodejs.org) |
-| PostgreSQL | 14+ (lokal) | `brew install postgresql` — opsional, lihat catatan testcontainers di bawah |
-| Docker | 20+ | [docs.docker.com](https://docs.docker.com/get-docker/) — wajib untuk testcontainers (E2E test) |
-| mdBook | 0.4.40+ | `cargo install mdbook` — opsional, hanya untuk preview concept catalog lokal (CI build otomatis) |
+| Docker | 20+ | Run app via compose (di bawah) + E2E test |
+| Docker Compose | v2.x | Sudah include di Docker Desktop modern |
+| Go | 1.22+ | Active coding backend (HMR), unit test |
+| Node.js | 20+ | Active coding frontend (HMR), unit test |
+| mdBook | 0.4.40+ | Preview concept catalog lokal (opsional, CI build otomatis) |
 
-Tooling Go dipasang via `make install-tools`:
+Untuk **just run aplikasi**, hanya butuh **Docker** + **Docker Compose**. Go dan Node.js diperlukan kalau mau active development dengan HMR.
+
+### Run dengan Docker Compose
+
+Quick start dari repo root:
 
 ```sh
-make install-tools  # install goose, sqlc (perlu network)
+git clone https://github.com/idtazkia/aplikasi-surat-kecamatan.git
+cd aplikasi-surat-kecamatan
+
+# Generate JWT secret (sekali, simpan di .env atau export per session)
+export JWT_SECRET=$(openssl rand -base64 32)
+
+# Build images + start semua service
+docker compose up --build
 ```
 
-### Setup Awal (Sekali)
+Yang terjadi:
 
-1. Clone repo:
-   ```sh
-   git clone https://github.com/idtazkia/aplikasi-surat-kecamatan.git
-   cd aplikasi-surat-kecamatan
-   ```
+1. **postgres** — PostgreSQL 16 dengan persistent volume `surat-pgdata`
+2. **backend** — Go binary, otomatis apply schema + demo seed migration saat startup, listen di port 8080
+3. **frontend** — Vue + Naive UI ter-build, di-serve nginx di port 80, proxy `/api/*` ke backend
 
-2. Setup PostgreSQL lokal (untuk dev backend):
-   ```sh
-   createdb surat_dev
-   createuser surat
-   psql -d surat_dev -c "ALTER USER surat WITH PASSWORD 'surat';"
-   ```
+Setelah semua siap (~30 detik first time, ~5 detik subsequent):
 
-3. Buat file `.env`:
-   ```sh
-   cp .env.example .env
-   # edit .env, set JWT_SECRET ke random base64 min 32 byte
-   # generate dengan: openssl rand -base64 32
-   ```
+- App: [http://localhost:5173](http://localhost:5173)
+- Backend API direct: [http://localhost:8080](http://localhost:8080)
+- Health check: `curl http://localhost:5173/healthz`
 
-4. Apply schema migration + demo seed:
-   ```sh
-   export DATABASE_URL="postgres://surat:surat@localhost:5432/surat_dev?sslmode=disable"
-   make migrate-up
-   make seed-demo
-   ```
-
-5. Install frontend dependencies:
-   ```sh
-   make web-install
-   ```
-
-### Run Backend (Development)
+### Operasi Compose
 
 ```sh
-# Terminal 1
-export $(grep -v '^#' .env | xargs)
-make dev
-# Server start di http://localhost:8080
-# Health check: curl http://localhost:8080/healthz
+docker compose up --build       # build + run, foreground (Ctrl+C untuk stop)
+docker compose up -d --build    # detached (background)
+docker compose logs -f backend  # tail log backend
+docker compose ps               # list service status
+docker compose stop             # stop semua, preserve container & volume
+docker compose down             # stop + hapus container, preserve volume
+docker compose down -v          # stop + hapus container + volume (FRESH RESET, hilangin DB data)
 ```
 
-### Run Frontend (Development)
+### Konfigurasi via Environment
+
+| Env var | Default | Catatan |
+|---|---|---|
+| `JWT_SECRET` | (wajib) | `openssl rand -base64 32`. Compose error kalau tidak di-set |
+| `LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error` |
+| `STUDENT_MODE_ENABLED` | `false` | `true` untuk aktifkan student-mode response (`_edu` block). **Jangan set true di production** |
+| `APPLY_DEMO_SEED` | `true` | `false` untuk skip seed (simulate production fresh DB) |
+
+Contoh dengan student mode aktif + demo seed off (untuk testing minimal startup):
 
 ```sh
-# Terminal 2
-make web-dev
-# Vite dev server di http://localhost:5173
-# /api/* otomatis di-proxy ke localhost:8080 (lihat web/vite.config.ts)
+JWT_SECRET=$(openssl rand -base64 32) \
+STUDENT_MODE_ENABLED=true \
+APPLY_DEMO_SEED=false \
+docker compose up --build
 ```
 
 ### Login Demo
@@ -163,12 +163,38 @@ Setelah backend + frontend running, buka [http://localhost:5173](http://localhos
 | `admin` | `demo123` | admin |
 | `student` | `demo123` | student (read-only demo) |
 
-> **Catatan**: kredensial ini hanya untuk demo seed. Production deployment apply schema saja, tidak demo-seed.
+> **Catatan**: kredensial ini hanya untuk demo seed. Production deployment set `APPLY_DEMO_SEED=false` agar DB schema saja tanpa data dummy.
 
-### Build Production Binary
+### Active Development dengan HMR
+
+Compose cocok untuk run-and-test, tapi rebuild image setiap perubahan kode lambat. Untuk active coding, jalankan service berbeda di host (HMR) sambil PostgreSQL tetap di compose:
 
 ```sh
-make build       # output: bin/server (Go binary)
+# Terminal 1: PostgreSQL only via compose
+docker compose up postgres
+
+# Terminal 2: backend Go dengan auto-reload
+export DATABASE_URL="postgres://surat:surat@localhost:5432/surat?sslmode=disable"
+export JWT_SECRET=$(openssl rand -base64 32)
+export LISTEN_ADDR=":8080"
+export LOG_LEVEL=debug
+export STUDENT_MODE_ENABLED=false
+make install-tools  # sekali, install goose
+make migrate-up
+make seed-demo
+make dev            # go run ./cmd/server
+
+# Terminal 3: Vite dev server dengan HMR
+make web-install    # sekali
+make web-dev        # http://localhost:5173, /api/* proxy ke localhost:8080
+```
+
+### Build Production Binary (Non-Docker)
+
+Kalau deploy ke VPS systemd-based (lihat `deploy/README.md`), build binary langsung:
+
+```sh
+make build       # output: bin/server (Go binary, statically linked)
 make web-build   # output: web/dist/ (static frontend assets)
 ```
 
@@ -222,22 +248,27 @@ npx playwright show-report            # lihat report HTML setelah run
 
 E2E test really submit form — pakai Playwright untuk fill input dan click button, bukan call API langsung.
 
-### Reset Demo Data
+### Reset Data
 
-```sh
-make reset-demo   # rollback semua seed + re-apply (schema tidak disentuh)
-```
+| Cara | Effect |
+|---|---|
+| `docker compose down -v` | Hapus container + volume `surat-pgdata` → DB benar-benar fresh next `up` |
+| `make reset-demo` (host workflow) | Rollback semua seed migration + re-apply, schema tidak disentuh. Butuh DB connection langsung |
+| Restart backend container | `docker compose restart backend` — migration idempotent, no data loss |
 
 ### Troubleshooting
 
 | Problem | Solusi |
 |---|---|
-| `goose: command not found` | Jalankan `make install-tools`. Goose dipasang ke `$GOPATH/bin/goose` — pastikan ada di `PATH` |
-| `pgx: connect: connection refused` | PostgreSQL tidak running. `pg_isready` untuk check, `brew services start postgresql` untuk start |
-| `STUDENT_MODE_ENABLED must be 'true' or 'false'` | Set di `.env`. Default ke `false` aman untuk dev |
+| `JWT_SECRET wajib di-set` saat compose up | Generate: `export JWT_SECRET=$(openssl rand -base64 32)` lalu compose up lagi |
+| `port is already allocated` (5432, 8080, 5173) | Service host pakai port yang sama. Stop service lokal atau ubah `ports:` di docker-compose.yml |
+| Backend exit dengan `db ping failed` | Postgres belum siap. Compose punya healthcheck, biasanya self-heal di restart kedua. Cek `docker compose logs postgres` |
+| Frontend 502 saat akses /api/* | Backend belum siap saat nginx start. Tunggu beberapa detik atau `docker compose restart frontend` |
+| `goose: command not found` (host workflow) | Jalankan `make install-tools`. Goose dipasang ke `$GOPATH/bin/goose` — pastikan ada di `PATH` |
 | `npm install` gagal di node_modules existing | `rm -rf web/node_modules web/package-lock.json && make web-install` |
 | Playwright timeout di global setup | Cek Docker running. Image PostgreSQL ~80MB akan di-download saat pertama run |
 | Concept-links lint gagal `[orphan-page]` | Halaman markdown punya `id:` tapi tidak ada marker `// concept:<id>:start` di source. Tambah marker, atau set `pending: true` di frontmatter untuk page intro |
+| Build slow (> 1 menit per layer) | `docker system prune` untuk hapus old layers. `npm ci` di-cache di image layer; perubahan `package.json` invalidate cache itu (expected) |
 
 ### Deployment Production
 

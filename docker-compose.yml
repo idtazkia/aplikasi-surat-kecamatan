@@ -1,0 +1,75 @@
+# Docker Compose untuk run aplikasi-surat-kecamatan secara lokal.
+#
+# Quick start:
+#   export JWT_SECRET=$(openssl rand -base64 32)
+#   docker compose up --build
+#
+# Akses: http://localhost:5173
+# Login demo: lihat README.md (default password: demo123)
+#
+# Stop:           docker compose down
+# Reset (drop DB): docker compose down -v
+#
+# Catatan:
+# - Default APPLY_DEMO_SEED=true → DB di-seed dengan data dummy untuk dev/demo.
+#   Set ke false untuk simulate production deployment (schema only).
+# - Untuk active coding dengan HMR, lebih cepat pakai `make dev` + `make web-dev`
+#   (lihat README "Development Lokal").
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: surat-postgres
+    environment:
+      POSTGRES_USER: surat
+      POSTGRES_PASSWORD: surat
+      POSTGRES_DB: surat
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U surat -d surat"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: surat-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://surat:surat@postgres:5432/surat?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET wajib di-set. Generate dengan, openssl rand -base64 32}
+      LISTEN_ADDR: ":8080"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      STUDENT_MODE_ENABLED: ${STUDENT_MODE_ENABLED:-false}
+      APPLY_DEMO_SEED: ${APPLY_DEMO_SEED:-true}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: surat-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5173:80"
+
+volumes:
+  pgdata:
+    name: surat-pgdata
