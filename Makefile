@@ -70,13 +70,16 @@ build:
 dev:
 	$(GO) run ./cmd/server
 
+# Filter out web/node_modules (third-party non-app Go files muncul lewat ./...).
+GO_PACKAGES = $(shell $(GO) list ./... | grep -v '/web/')
+
 ## test: run Go tests
 test:
-	$(GO) test -race -count=1 ./...
+	$(GO) test -race -count=1 $(GO_PACKAGES)
 
 ## coverage: run tests dengan coverage report
 coverage:
-	$(GO) test -race -coverprofile=coverage.txt ./...
+	$(GO) test -race -coverprofile=coverage.txt -covermode=atomic $(GO_PACKAGES)
 	$(GO) tool cover -html=coverage.txt -o coverage.html
 	@echo "Coverage report: coverage.html"
 

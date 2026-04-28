@@ -1,0 +1,85 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: true
+
+      - name: Verify go.mod
+        run: |
+          go mod download
+          go mod verify
+
+      - name: Vet
+        run: go vet $(go list ./... | grep -v '/web/')
+
+      - name: Test with race detector & coverage
+        run: |
+          go test -race -count=1 -coverprofile=coverage.txt -covermode=atomic $(go list ./... | grep -v '/web/')
+          go tool cover -func=coverage.txt | tail -1
+
+      - name: Coverage gate (≥70%)
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.txt | tail -1 | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: ${COVERAGE}%"
+          # Threshold 70 — gate ditegakkan setelah Fase 1 saat lebih banyak handler ditest.
+          # Untuk Fase 0 (mostly scaffold + unit tested core), info-only.
+          THRESHOLD=70
+          if [ "$(echo "$COVERAGE >= $THRESHOLD" | bc -l)" -eq 1 ]; then
+            echo "✓ Coverage meets threshold"
+          else
+            echo "ℹ Coverage below threshold (${THRESHOLD}%) — informational, akan jadi gate hard di Fase 1"
+          fi
+
+      - name: Build
+        run: go build -v $(go list ./... | grep -v '/web/')
+
+      - name: Concept-links lint
+        run: go run ./tools/concept-links lint
+
+  frontend:
+    name: Frontend (Vue + TypeScript)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true # eslint config bisa di-tune; jangan block awalnya
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm run test
+        continue-on-error: true # belum ada test file di Fase 0
