@@ -1,0 +1,31 @@
+[book]
+title = "Concept Catalog — Aplikasi Surat Kecamatan"
+authors = ["STMIK Tazkia"]
+description = "Concept catalog yang link source code aplikasi ke konsep matkul Struktur Data, Algoritma, dan Basis Data."
+language = "id"
+src = "src"
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/idtazkia/aplikasi-surat-kecamatan"
+edit-url-template = "https://github.com/idtazkia/aplikasi-surat-kecamatan/edit/main/docs/concepts/{path}"
+mathjax-support = false
+copy-fonts = true
+no-section-label = false
+
+[output.html.search]
+enable = true
+limit-results = 30
+use-boolean-and = true
+boost-title = 2
+boost-hierarchy = 1
+boost-paragraph = 1
+expand = true
+heading-split-level = 3
+
+[output.html.fold]
+enable = false
+
+[rust]
+edition = "2018"
