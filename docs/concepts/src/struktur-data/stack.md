@@ -10,6 +10,10 @@ fase: [N/A]
 # Stack (LIFO)
 
 > **Status**: konsep fundamental — implementasi domain-specific belum ada di Fase 0. Halaman ini intro pengantar.
+>
+> **Map ke materi kuliah**: [Skenario 2 — Undo Edit Metadata](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md). "Bu Camat menekan tombol Undo. Sistem harus mengembalikan ke state sebelumnya... Bandingkan dengan skenario 1 — kenapa urutan pengambilannya berbeda?"
+>
+> Bridge ke Java: [stack/Tumpukan.java](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/stack/Tumpukan.java).
 
 ## Teori
 

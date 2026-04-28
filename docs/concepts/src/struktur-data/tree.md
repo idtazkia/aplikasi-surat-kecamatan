@@ -10,6 +10,10 @@ fase: [2]
 # Tree
 
 > **Status**: implementasi traversal di app akan di-anchor di Fase 2 (recursive CTE untuk thread korespondensi). Halaman ini intro pengantar + forward reference.
+>
+> **Map ke materi kuliah**: [Skenario 3 — Disposisi Surat Internal](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md). "Bagaimana kamu menyimpan hubungan 'siapa disposisi ke siapa' untuk satu surat?... Camat → Sekcam → Kasi Pemerintahan → Staf Ani → Magang-1." Hierarki single-parent → tree.
+>
+> Untuk korespondensi antar-instansi (Skenario 4) yang punya multiple parent + cycle, lihat [Graph](./graph.md).
 
 ## Teori
 

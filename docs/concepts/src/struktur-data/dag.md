@@ -10,6 +10,10 @@ fase: [2]
 # DAG (Directed Acyclic Graph)
 
 > **Status**: implementasi cycle detection + topological traversal akan di-anchor di Fase 2. Halaman ini intro pengantar.
+>
+> **Map ke materi kuliah**: [Skenario 4 — Ketertelusuran Korespondensi Antar-Institusi](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md). "Apakah mungkin ada siklus (surat A balas surat B, lalu B balas A lagi, lalu A balas lagi)? Kalau iya, bagaimana algoritma penelusuranmu menghindari loop tak terhingga?"
+>
+> Lihat juga [Graph](./graph.md) untuk konsep parent yang lebih general (DAG = special case graph + acyclic).
 
 ## Teori
 

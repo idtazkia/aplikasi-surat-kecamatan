@@ -12,8 +12,11 @@
 - [Queue (FIFO)](./struktur-data/queue.md)
 - [Stack (LIFO)](./struktur-data/stack.md)
 - [Tree](./struktur-data/tree.md)
+- [Graph](./struktur-data/graph.md)
 - [DAG (Directed Acyclic Graph)](./struktur-data/dag.md)
 - [Heap & Priority Queue](./struktur-data/heap.md)
+- [Trie (Prefix Tree)](./struktur-data/trie.md)
+- [Sliding Window & Probabilistic Structures](./struktur-data/streaming.md)
 
 # Algoritma
 

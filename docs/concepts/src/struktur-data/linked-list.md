@@ -8,6 +8,10 @@ fase: [0, 2]
 
 # Linked List
 
+> **Map ke materi kuliah**: [Skenario 1 — Antrian Rekonsiliasi Duplikat](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md). Skenario eksplisit menanyakan: "Untuk menyimpan koleksi kasus antrian ini, kamu bisa pakai array atau linked list. Mana yang lebih cocok untuk skenario ini?"
+>
+> Bridge ke Java: [linked-list/LinkedList.java](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/linked-list/LinkedList.java) — doubly-linked list dengan insertAtBeginning/End/After, deleteNode, traversal forward+backward.
+
 ## Teori
 
 **Linked list** adalah sequence node yang dihubungkan via pointer. Beda dengan array: tidak butuh contiguous memory, insert/delete di tengah O(1) kalau pointer ke node sudah ada.

@@ -8,6 +8,10 @@ fase: [0]
 
 # Hash Table
 
+> **Map ke materi kuliah**: [Skenario 6 Bagian B — Deteksi Duplikat Instan](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md). "Pengecekan ini terjadi setiap kali staf klik Simpan — tidak boleh lambat meski database sudah berisi 50.000 surat... Apa kunci yang kamu pakai untuk lookup?"
+>
+> Untuk autocomplete prefix di Skenario 6 Bagian A, lihat [Trie](./trie.md). Hash table untuk exact match, trie untuk prefix match.
+
 ## Teori
 
 **Hash table** = struktur key-value yang lookup, insert, dan delete-nya O(1) average dengan trade-off space O(n).
