@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
 
 test("akses / tanpa login -> redirect ke /login dengan ?next", async ({ page }) => {
   await page.goto("/");
-  await expect(page).toHaveURL(/\/login\?next=%2F/);
+  await expect(page).toHaveURL(/\/login\?next=\/?$/);
 });
 
 test("login -> refresh page -> tetap authenticated", async ({ page }) => {

@@ -65,8 +65,17 @@ async function globalSetup(): Promise<() => Promise<void>> {
     { cwd: REPO_ROOT, stdio: "inherit" },
   );
 
-  console.log("[e2e] Starting Go backend (go run ./cmd/server)...");
-  const backend: ChildProcess = spawn("go", ["run", "./cmd/server"], {
+  // Pre-build binary kalau belum ada — lebih cepat dari go run karena
+  // tidak compile per startup.
+  const backendBinary = path.join(REPO_ROOT, "bin/server");
+  console.log("[e2e] Building Go backend binary...");
+  execSync(`go build -o ${backendBinary} ./cmd/server`, {
+    cwd: REPO_ROOT,
+    stdio: "inherit",
+  });
+
+  console.log("[e2e] Starting Go backend...");
+  const backend: ChildProcess = spawn(backendBinary, [], {
     cwd: REPO_ROOT,
     env: {
       ...process.env,

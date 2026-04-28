@@ -56,19 +56,20 @@ describe("apiClient", () => {
   });
 
   it("non-OK response throw ApiError dengan status", async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 401,
       text: async () => '{"error":"invalid credentials"}',
     } as never);
 
-    await expect(apiClient.post("/api/auth/login", {})).rejects.toThrowError(ApiError);
+    let caught: unknown;
     try {
       await apiClient.post("/api/auth/login", {});
     } catch (e) {
-      expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).status).toBe(401);
+      caught = e;
     }
+    expect(caught).toBeInstanceOf(ApiError);
+    expect((caught as ApiError).status).toBe(401);
   });
 
   it("_edu payload di response auto-record ke eduPanel store", async () => {

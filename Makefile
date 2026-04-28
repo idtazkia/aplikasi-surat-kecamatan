@@ -101,9 +101,18 @@ web-dev:
 web-build:
 	cd web && $(NPM) run build
 
-## web-test: run frontend tests (Vitest)
+## web-test: run frontend unit tests (Vitest, dengan coverage gate 80%)
 web-test:
-	cd web && $(NPM) run test
+	cd web && $(NPM) run test:unit
+
+## web-test-e2e: run end-to-end tests (Playwright + testcontainers)
+##               Butuh Docker running. Otomatis spin up PostgreSQL, build Go
+##               backend, start frontend dev server.
+web-test-e2e:
+	cd web && $(NPM) run test:e2e
+
+## web-test-all: unit + E2E
+web-test-all: web-test web-test-e2e
 
 ## web-lint: run frontend linter
 web-lint:

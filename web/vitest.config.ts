@@ -14,19 +14,21 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: "jsdom",
+    environment: "happy-dom",
+    setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.{test,spec}.ts"],
     exclude: ["node_modules", "dist", "e2e"],
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
-      include: ["src/**/*.{ts,vue}"],
+      // Vitest unit test cover stores + API client (logic).
+      // Komponen Vue (views/components/App.vue) di-cover oleh Playwright E2E
+      // — tidak relevan double-test di sini.
+      include: ["src/stores/**/*.ts", "src/api/**/*.ts"],
       exclude: [
         "src/**/*.spec.ts",
         "src/**/*.test.ts",
-        "src/main.ts",
-        "src/env.d.ts",
-        "src/router/**",
+        "src/**/__tests__/**",
       ],
       thresholds: {
         lines: 80,

@@ -6,9 +6,16 @@ const STORAGE_KEY = "surat-kec-theme";
 export const useThemeStore = defineStore("theme", () => {
   const dark = ref<boolean>(localStorage.getItem(STORAGE_KEY) === "dark");
 
-  watch(dark, (v) => {
-    localStorage.setItem(STORAGE_KEY, v ? "dark" : "light");
-  });
+  // flush: 'sync' supaya localStorage di-update segera saat dark berubah.
+  // Default flush='pre' bisa membuat persist tertunda — penting untuk test
+  // dan untuk handle close-tab race condition.
+  watch(
+    dark,
+    (v) => {
+      localStorage.setItem(STORAGE_KEY, v ? "dark" : "light");
+    },
+    { flush: "sync" },
+  );
 
   function toggle() {
     dark.value = !dark.value;
