@@ -51,6 +51,7 @@ Rencana implementasi per fase. Tiap fase deployable mandiri — kalau budget hab
 
 ### Frontend skeleton
 - Vue 3 + Vite project init
+- Naive UI setup: theme provider, dark mode toggle, locale Indonesia
 - Routing struktur (login, dashboard placeholder, list placeholder)
 - Pinia store skeleton: `auth`, `syncQueue` (placeholder, dipakai mulai Fase 4)
 - PWA setup awal (`vite-plugin-pwa`) — service worker registration ada, strategy detail di Fase 3

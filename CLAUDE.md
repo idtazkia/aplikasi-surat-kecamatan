@@ -125,7 +125,7 @@ Struktur Data, Algoritma, Basis Data. Tidak diperluas ke matkul lain.
 - PWA: `vite-plugin-pwa`
 - IndexedDB: Dexie.js
 - Query cache / offline sync: TanStack Query (Vue adapter)
-- UI/table library: pilih saat scaffold (PrimeVue / Naive UI / Element Plus)
+- UI/table library: **Naive UI**
 
 ### Database
 - PostgreSQL
@@ -150,6 +150,7 @@ Struktur Data, Algoritma, Basis Data. Tidak diperluas ke matkul lain.
 - **Plain Go, bukan Gin/Echo/Fiber**: Go 1.22 ServeMux menutup gap routing utama (method + path params native). Menghindari framework churn, dependency tree lebih kecil, mahasiswa kontributor belajar HTTP asli tanpa abstraksi framework.
 - **sqlc, bukan ORM**: SQL tetap visible (sesuai mandat edukasi Basis Data), generated Go code type-safe.
 - **Vue, bukan React/Svelte**: komunitas Indonesia lebih besar, UI/table lib matang.
+- **Naive UI, bukan PrimeVue/Element Plus**: didesain ground-up untuk Vue 3 (bukan port dari Vue 2 atau React). Mahasiswa kontributor belum ada pengalaman Vue sama sekali — pattern idiomatic Vue 3 yang bersih membantu proses belajar dari awal yang benar. Bonus: bundle paling kecil (penting untuk PWA), TypeScript first-class, theming via JS object (no SCSS preprocessor di stack).
 - **Tanpa Docker**: single binary Go + systemd sudah deployable secara langsung. Menambahkan Docker tidak menyelesaikan masalah apapun di scope ini.
 - **mdBook, bukan Hugo/Docusaurus**: paling minimalis untuk content-heavy markdown dengan navigation tree + search bawaan. Single binary, fast build di CI.
 
@@ -161,7 +162,6 @@ Struktur Data, Algoritma, Basis Data. Tidak diperluas ke matkul lain.
 - [ ] Spek VPS Biznet Gio existing (RAM, CPU, storage, region) untuk capacity planning & backup target
 - [ ] Retention policy untuk PDF (berapa lama disimpan, arsip offline, dsb.)
 - [ ] Data sensitivity review: surat pemerintah bisa mengandung data pribadi — tentukan enkripsi at-rest dan in-transit, akses log
-- [ ] UI library Vue yang dipilih (PrimeVue / Naive UI / Element Plus)
 - [ ] Domain utama + subdomain `concepts.<domain>` + DNS
 - [ ] Konfirmasi praktik penomoran disposisi di kantor — kalau tidak ada, drop field `nomor_disposisi`
 
