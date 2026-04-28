@@ -1,0 +1,56 @@
+# Build artifacts
+/bin/
+/dist/
+/build/
+/book/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+*.test
+*.out
+coverage.html
+coverage.txt
+/vendor/
+
+# Generated tooling binaries
+/tools/concept-links/concept-links
+/cmd/server/server
+
+# Frontend (Vue/Vite)
+node_modules/
+.vite/
+.cache/
+*.local
+
+# Concept catalog build output
+/docs/concepts/book/
+/docs/concepts/src/concept-links.json
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Logs & runtime
+*.log
+/tmp/
+/var/
+
+# IDE & editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code local session
+.claude/settings.local.json
