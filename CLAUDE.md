@@ -104,7 +104,7 @@ Struktur Data, Algoritma, Basis Data. Tidak diperluas ke matkul lain.
 ### Dataset Demo
 - Goose migration di folder terpisah: `db/migrations/demo-seed/` (vs `db/migrations/schema/`).
 - Production deployment hanya apply schema. Demo deployment apply schema + seed.
-- Tag git per semester: `dataset-2026-1`, `dataset-2026-2`, dst — checkout tag = state reproducible untuk soal praktikum.
+- Reproducibility praktikum: pakai app version tag (CalVer `YYYY.MM.NN`). Checkout tag = state schema + seed deterministik. Tidak ada tag dataset terpisah — versi app sudah cover state dataset.
 - Reset script: `make reset-demo` — rollback semua seed migration, re-apply, schema tidak disentuh.
 - Seed harus idempotent (`INSERT ... ON CONFLICT DO NOTHING` atau gate dengan check) supaya aman re-run.
 
@@ -135,10 +135,15 @@ Struktur Data, Algoritma, Basis Data. Tidak diperluas ke matkul lain.
 - Hosting: GitHub Pages dengan custom domain `concepts.<domain>`
 
 ### Deployment
-- Single VPS, ~1GB RAM / 1 vCPU tier
+- VPS existing di **Biznet Gio**
 - systemd service untuk Go binary, nginx reverse proxy, Let's Encrypt TLS
 - Tidak menggunakan Docker/Kubernetes
 - Concept catalog hosted di GitHub Pages (terpisah dari VPS app, mengurangi beban)
+
+### Versioning
+- App version: **CalVer `YYYY.MM.NN`** (mis. `2026.05.01` = release pertama Mei 2026, `.02` = release kedua di bulan yang sama).
+- Tidak ada tag terpisah untuk dataset atau roadmap — git history + app version tag sudah cukup.
+- E2E test framework: **Playwright**.
 
 ### Alasan Pilihan Stack
 
@@ -153,7 +158,7 @@ Struktur Data, Algoritma, Basis Data. Tidak diperluas ke matkul lain.
 - [ ] Nama kecamatan dan kontak resmi (Bu Camat, PIC staf)
 - [ ] MoU/kesepakatan kerja: kepemilikan data, SLA, cakupan maintenance, batasan liability
 - [ ] Jumlah staf yang akan jadi user (menentukan seeding role & ekspektasi beban)
-- [ ] VPS provider dan region (backup strategy, monitoring mengikuti)
+- [ ] Spek VPS Biznet Gio existing (RAM, CPU, storage, region) untuk capacity planning & backup target
 - [ ] Retention policy untuk PDF (berapa lama disimpan, arsip offline, dsb.)
 - [ ] Data sensitivity review: surat pemerintah bisa mengandung data pribadi — tentukan enkripsi at-rest dan in-transit, akses log
 - [ ] UI library Vue yang dipilih (PrimeVue / Naive UI / Element Plus)

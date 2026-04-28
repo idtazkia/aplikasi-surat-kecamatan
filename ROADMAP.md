@@ -446,7 +446,7 @@ Rencana implementasi per fase. Tiap fase deployable mandiri — kalau budget hab
 ### Testing
 - **Unit test**: `testing` package + `testify` (Go), Vitest (Vue)
 - **Integration test**: testcontainers PostgreSQL untuk Go; mock service worker untuk Vue
-- **E2E test**: Playwright atau Cypress (pilih saat scaffold Fase 0)
+- **E2E test**: Playwright
 - **Coverage gate** ≥70% via CI
 
 ### Backup
@@ -456,8 +456,9 @@ Rencana implementasi per fase. Tiap fase deployable mandiri — kalau budget hab
 
 ### Deployment Pipeline
 - Branch `main` → CI build → deploy ke staging otomatis
-- Tag `v*.*.*` → deploy ke production manual approval
+- Tag CalVer `YYYY.MM.NN` (mis. `2026.05.01`) → deploy ke production manual approval
 - Migration auto-apply saat deploy (`goose up`) — schema saja, demo-seed terpisah
+- VPS production: existing di Biznet Gio
 
 ### Monitoring
 - Health check endpoint `/healthz` untuk uptime monitor eksternal
@@ -468,4 +469,4 @@ Rencana implementasi per fase. Tiap fase deployable mandiri — kalau budget hab
 
 ## Versi Roadmap
 
-Roadmap ini hidup — di-update setiap akhir fase atau saat ada perubahan keputusan arsitektur signifikan. Perubahan tercatat di git history. Untuk milestone formal (mis. handover ke kantor kecamatan, akhir semester perkuliahan), tag git `roadmap-<periode>` untuk snapshot state.
+Roadmap ini hidup — di-update setiap akhir fase atau saat ada perubahan keputusan arsitektur signifikan. Perubahan tercatat di git history. Tidak ada tag snapshot terpisah — checkout app version tag (CalVer `YYYY.MM.NN`) sudah memberi state roadmap, schema, dan dataset yang konsisten di titik tersebut.
