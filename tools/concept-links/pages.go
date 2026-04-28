@@ -12,14 +12,16 @@ import (
 
 // ConceptPage adalah satu markdown file di docs/concepts/src/.
 type ConceptPage struct {
-	RelPath string // relatif ke repo root
-	ID      string // dari frontmatter `id:`
-	Anchors []string // semua @anchor:<id> yang muncul di body
+	RelPath  string // relatif ke repo root
+	ID       string // dari frontmatter `id:`
+	Pending  bool   // dari frontmatter `pending: true` — implementasi belum di-anchor
+	Anchors  []string // semua @anchor:<id> yang muncul di body
 }
 
 var (
-	frontmatterIDRE = regexp.MustCompile(`(?m)^id:\s*([a-z0-9][a-z0-9-]*)\s*$`)
-	anchorRE        = regexp.MustCompile(`@anchor:([a-z0-9][a-z0-9-]*)`)
+	frontmatterIDRE      = regexp.MustCompile(`(?m)^id:\s*([a-z0-9][a-z0-9-]*)\s*$`)
+	frontmatterPendingRE = regexp.MustCompile(`(?m)^pending:\s*true\s*$`)
+	anchorRE             = regexp.MustCompile(`@anchor:([a-z0-9][a-z0-9-]*)`)
 )
 
 // scanPages baca semua markdown di concepts dir, extract id dan anchors.
@@ -87,11 +89,15 @@ func parsePage(absPath, relPath string) (*ConceptPage, error) {
 		return nil, err
 	}
 
-	if m := frontmatterIDRE.FindStringSubmatch(content.String()); m != nil {
+	body := content.String()
+	if m := frontmatterIDRE.FindStringSubmatch(body); m != nil {
 		page.ID = m[1]
 	}
+	if frontmatterPendingRE.MatchString(body) {
+		page.Pending = true
+	}
 
-	for _, m := range anchorRE.FindAllStringSubmatch(content.String(), -1) {
+	for _, m := range anchorRE.FindAllStringSubmatch(body, -1) {
 		page.Anchors = append(page.Anchors, m[1])
 	}
 

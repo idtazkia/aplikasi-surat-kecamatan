@@ -28,3 +28,8 @@ dev-dist/
 
 # Concept links bundled from CI (generated, not source-of-truth)
 public/concept-links.json
+
+# Playwright artifacts
+test-results/
+playwright-report/
+playwright/.cache/

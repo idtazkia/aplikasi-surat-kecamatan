@@ -15,9 +15,11 @@ NPM ?= npm
 # Database connection (override via env atau .env)
 DATABASE_URL ?= postgres://surat:surat@localhost:5432/surat_dev?sslmode=disable
 
-# Migration directories
+# Migration directories + goose version tables (terpisah supaya schema dan seed
+# tidak konflik di version_id — keduanya pakai prefix 0001_*.sql)
 MIGRATIONS_SCHEMA := db/migrations/schema
 MIGRATIONS_SEED   := db/migrations/demo-seed
+GOOSE_SEED_TABLE  := goose_demo_seed_version
 
 # Tool versions (lock untuk reproducibility)
 GOOSE_VERSION  := v3.22.1
@@ -51,12 +53,12 @@ migrate-status:
 
 ## seed-demo: apply demo-seed migration (env demo/dev saja, JANGAN di production)
 seed-demo:
-	goose -dir $(MIGRATIONS_SEED) postgres "$(DATABASE_URL)" up
+	goose -dir $(MIGRATIONS_SEED) -table $(GOOSE_SEED_TABLE) postgres "$(DATABASE_URL)" up
 
 ## reset-demo: rollback semua seed lalu re-apply (schema tidak disentuh)
 reset-demo:
-	goose -dir $(MIGRATIONS_SEED) postgres "$(DATABASE_URL)" down-to 0
-	goose -dir $(MIGRATIONS_SEED) postgres "$(DATABASE_URL)" up
+	goose -dir $(MIGRATIONS_SEED) -table $(GOOSE_SEED_TABLE) postgres "$(DATABASE_URL)" down-to 0
+	goose -dir $(MIGRATIONS_SEED) -table $(GOOSE_SEED_TABLE) postgres "$(DATABASE_URL)" up
 
 ## sqlc: generate Go code dari SQL queries
 sqlc:

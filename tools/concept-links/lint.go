@@ -43,8 +43,12 @@ func runLint(cfg *Config) error {
 		}
 	}
 
-	// Concept page tanpa marker
+	// Concept page tanpa marker (kecuali pending: true di frontmatter — overview
+	// page yang implementasinya akan di-anchor di fase berikutnya).
 	for id, p := range pageIDs {
+		if p.Pending {
+			continue
+		}
 		if _, ok := markerIDs[id]; !ok {
 			issues = append(issues, fmt.Sprintf(
 				"[orphan-page]     concept page id:%s (%s) tapi tidak ada marker di source",
@@ -52,8 +56,11 @@ func runLint(cfg *Config) error {
 		}
 	}
 
-	// Anchor tanpa marker
+	// Anchor tanpa marker (skip kalau page pending — masih placeholder)
 	for _, p := range pages {
+		if p.Pending {
+			continue
+		}
 		for _, a := range p.Anchors {
 			if _, ok := markerIDs[a]; !ok {
 				issues = append(issues, fmt.Sprintf(

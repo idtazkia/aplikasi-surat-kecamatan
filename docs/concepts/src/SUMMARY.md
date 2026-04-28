@@ -6,6 +6,14 @@
 
 - [UUID v7 — Time-Ordered Identifier](./struktur-data/uuid-v7.md)
 - [Append-Only Pattern (Immutability)](./struktur-data/append-only.md)
+- [Linked List](./struktur-data/linked-list.md)
+- [Hash Table](./struktur-data/hash-table.md)
+- [Set](./struktur-data/set.md)
+- [Queue (FIFO)](./struktur-data/queue.md)
+- [Stack (LIFO)](./struktur-data/stack.md)
+- [Tree](./struktur-data/tree.md)
+- [DAG (Directed Acyclic Graph)](./struktur-data/dag.md)
+- [Heap & Priority Queue](./struktur-data/heap.md)
 
 # Algoritma
 

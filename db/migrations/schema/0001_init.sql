@@ -19,12 +19,18 @@ CREATE TABLE permissions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- concept:set-composite-key:start
+-- role_permissions = relasi M:N antara roles dan permissions, semantik set
+-- mathematik: {(role, permission) | role berhak melakukan permission}.
+-- Composite PK (role_id, permission_id) menjamin no duplikat — properti dasar
+-- set: tidak ada elemen ganda. INSERT duplikat ditolak DB, idempotent saat seed.
 CREATE TABLE role_permissions (
     role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
     granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (role_id, permission_id)
 );
+-- concept:set-composite-key:end
 
 CREATE TABLE klasifikasi (
     id UUID PRIMARY KEY,
@@ -136,6 +142,12 @@ CREATE INDEX idx_surat_masuk_dedup ON surat (instansi_id, nomor_surat, tanggal_t
 -- Surat: lampiran, tembusan, references, ACL
 -- =====================================================================
 
+-- concept:linked-list-version-chain:start
+-- Linked list singly-linked: setiap row punya pointer `replaced_by` ke node
+-- berikutnya (versi pengganti). Versi paling baru = node dengan replaced_by NULL
+-- (tail). Traversal balik dari tail = walk linked list.
+-- Trade-off vs separate versions table: kompak (1 table), tapi query "current
+-- version of attachment X" butuh filter is_active=true (denormalisasi cache).
 CREATE TABLE surat_attachments (
     id UUID PRIMARY KEY,
     surat_id UUID NOT NULL REFERENCES surat(id) ON DELETE CASCADE,
@@ -145,10 +157,11 @@ CREATE TABLE surat_attachments (
     file_size BIGINT NOT NULL CHECK (file_size > 0),
     mime_type TEXT NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    replaced_by UUID REFERENCES surat_attachments(id),
+    replaced_by UUID REFERENCES surat_attachments(id),  -- next pointer di linked list
     uploaded_by UUID NOT NULL REFERENCES users(id),
     uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- concept:linked-list-version-chain:end
 
 CREATE INDEX idx_attachments_surat_active ON surat_attachments (surat_id) WHERE is_active;
 CREATE INDEX idx_attachments_replaced ON surat_attachments (replaced_by) WHERE replaced_by IS NOT NULL;
@@ -304,18 +317,28 @@ CREATE INDEX idx_recon_pending ON reconciliation_queue (created_at)
 -- Notifikasi (in-app, polling-based; push di Fase 7)
 -- =====================================================================
 
+-- concept:queue-fifo-natural-order:start
+-- Queue FIFO per-user: notifikasi diterima dalam urutan masuk (chronological)
+-- dan biasanya di-consume berurutan oleh client (mark-as-read sequential).
+-- UUIDv7 sebagai PK = time-ordered → ORDER BY id ekuivalen ORDER BY created_at,
+-- dan B-Tree index pada (user_id, created_at DESC) memberi enqueue O(log n)
+-- + dequeue (peek + mark read) O(log n).
+-- Bukan strict FIFO karena consumer bisa skip baca, tapi semantik queue cukup
+-- untuk kebutuhan notifikasi (vs strict order untuk mis. message broker).
 CREATE TABLE notifications (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY,                                 -- UUIDv7 = time-ordered
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     type TEXT NOT NULL,
     payload_jsonb JSONB NOT NULL,
-    read_at TIMESTAMPTZ,
+    read_at TIMESTAMPTZ,                                  -- NULL = unread (belum di-dequeue)
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Partial index: query "unread queue" sangat cepat — hanya scan tail yang belum diconsume.
 CREATE INDEX idx_notif_user_unread ON notifications (user_id, created_at DESC)
     WHERE read_at IS NULL;
 CREATE INDEX idx_notif_user_all ON notifications (user_id, created_at DESC);
+-- concept:queue-fifo-natural-order:end
 
 
 -- +goose Down
