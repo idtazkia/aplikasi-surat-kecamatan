@@ -1,16 +1,13 @@
 ---
-id: tree
+id: tree-traversal
 courses: [struktur-data]
-pending: true
 prereq: [linked-list-version-chain]
-related: [btree-partial-index-soft-delete, dag, hash-table-map]
-fase: [2]
+related: [btree-partial-index-soft-delete, dag-cycle-detection, graph-bfs-dfs]
+fase: [0, 2]
 ---
 
 # Tree
 
-> **Status**: implementasi traversal di app akan di-anchor di Fase 2 (recursive CTE untuk thread korespondensi). Halaman ini intro pengantar + forward reference.
->
 > **Map ke materi kuliah**: [Skenario 3 — Disposisi Surat Internal](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md). "Bagaimana kamu menyimpan hubungan 'siapa disposisi ke siapa' untuk satu surat?... Camat → Sekcam → Kasi Pemerintahan → Staf Ani → Magang-1." Hierarki single-parent → tree.
 >
 > Untuk korespondensi antar-instansi (Skenario 4) yang punya multiple parent + cycle, lihat [Graph](./graph.md).
@@ -65,6 +62,12 @@ Beberapa struktur tree di app:
 4. **Klasifikasi hierarki** (potential, belum ada): kode klasifikasi 100, 110, 111 punya implicit hierarchy. Bisa di-model sebagai tree pakai `parent_id` self-reference. Saat ini flat (single level kode).
 
 5. **DOM tree** di frontend Vue — implicit tree HTML elements.
+
+Reference implementation generic n-ary tree dengan BFS dan DFS traversal ada di package `internal/datastruct/tree`. Tree pakai parent pointer + children slice — pre-order DFS rekursif dengan early-stop propagation, BFS pakai queue eksplisit.
+
+## Source Code
+
+@anchor:tree-traversal
 
 ## Big-O
 

@@ -1,16 +1,13 @@
 ---
-id: heap
+id: heap-priority-queue
 courses: [struktur-data]
-pending: true
-prereq: [tree, queue-fifo-natural-order]
-related: [queue-fifo-natural-order, tree]
-fase: [4]
+prereq: [tree-traversal, queue-fifo-natural-order]
+related: [queue-fifo-natural-order, tree-traversal]
+fase: [0, 4]
 ---
 
 # Heap & Priority Queue
 
-> **Status**: priority queue untuk sync queue dengan retry akan di-anchor di Fase 4. Halaman ini intro pengantar.
->
 > **Map ke materi kuliah**: [Skenario 5 — Prioritas Surat Urgent](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md). "Bagaimana kamu menyimpan 30 surat tadi supaya Camat selalu bisa ambil yang paling urgent dengan cepat?... Kalau pakai array biasa lalu sort tiap kali ambil, apa kelemahannya kalau surat baru datang terus?"
 
 ## Teori
@@ -68,9 +65,15 @@ Extract:
 - **Heap sort** — O(n log n) sort in-place
 - **Top-k problem** — pakai heap ukuran k
 
-## Implementasi di App (Pending)
+## Implementasi di App
 
-Belum ada implementasi domain-specific di Fase 0. Forward use case:
+Reference implementation binary min-heap generik di package `internal/datastruct/priorityq`. Compare function injectable — pakai `compare(b, a)` untuk max-heap, atau struct comparison untuk priority by field.
+
+## Source Code
+
+@anchor:heap-priority-queue
+
+## Forward Use Case
 
 ### Fase 4 — Sync Queue dengan Priority
 

@@ -1,16 +1,13 @@
 ---
-id: dag
+id: dag-cycle-detection
 courses: [struktur-data]
-pending: true
-prereq: [tree, linked-list-version-chain]
-related: [tree, set-composite-key]
-fase: [2]
+prereq: [tree-traversal, graph-adjacency-list]
+related: [graph-adjacency-list, set-composite-key]
+fase: [0, 2]
 ---
 
 # DAG (Directed Acyclic Graph)
 
-> **Status**: implementasi cycle detection + topological traversal akan di-anchor di Fase 2. Halaman ini intro pengantar.
->
 > **Map ke materi kuliah**: [Skenario 4 — Ketertelusuran Korespondensi Antar-Institusi](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md). "Apakah mungkin ada siklus (surat A balas surat B, lalu B balas A lagi, lalu A balas lagi)? Kalau iya, bagaimana algoritma penelusuranmu menghindari loop tak terhingga?"
 >
 > Lihat juga [Graph](./graph.md) untuk konsep parent yang lebih general (DAG = special case graph + acyclic).
@@ -81,6 +78,14 @@ Algoritma:
 - → Cycle
 
 Cycle harus di-detect karena recursive CTE tanpa cycle detection = infinite loop.
+
+## Implementasi di App
+
+Reference implementation `HasCycle()` (3-color DFS) dan `TopologicalSort()` (Kahn's BFS-based) ada di package `internal/datastruct/graph`.
+
+## Source Code
+
+@anchor:dag-cycle-detection
 
 ## Forward Reference (Fase 2)
 

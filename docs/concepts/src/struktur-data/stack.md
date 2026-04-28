@@ -1,19 +1,14 @@
 ---
-id: stack
+id: stack-lifo
 courses: [struktur-data]
-pending: true
 prereq: [linked-list-version-chain]
-related: [queue-fifo-natural-order]
-fase: [N/A]
+related: [queue-fifo-natural-order, graph-bfs-dfs]
+fase: [0]
 ---
 
 # Stack (LIFO)
 
-> **Status**: konsep fundamental — implementasi domain-specific belum ada di Fase 0. Halaman ini intro pengantar.
->
 > **Map ke materi kuliah**: [Skenario 2 — Undo Edit Metadata](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md). "Bu Camat menekan tombol Undo. Sistem harus mengembalikan ke state sebelumnya... Bandingkan dengan skenario 1 — kenapa urutan pengambilannya berbeda?"
->
-> Bridge ke Java: [stack/Tumpukan.java](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/stack/Tumpukan.java).
 
 ## Teori
 
@@ -40,15 +35,13 @@ Stack mendasari banyak konsep:
 - **Undo/redo** — push action ke undo stack, pop saat undo
 - **Browser history** — back button = pop
 
-## Implementasi di App (Pending)
+## Implementasi di App
 
-Aplikasi-surat-kecamatan **belum** punya struktur stack domain-specific di Fase 0. Stack kemungkinan muncul di:
+Reference implementation generic stack ada di package `internal/datastruct/stack`. Dipakai oleh `internal/datastruct/graph` untuk DFS traversal eksplisit (iterative, hindari risiko stack overflow di graph dalam dengan rekursi).
 
-- **Fase 5 — Antrian rekonsiliasi**: kandidat. Saat user resolve grup duplikat, history "decision yang sudah dibuat" untuk undo bisa pakai stack. Tapi praktiknya akan di-persist sebagai append-only log, bukan stack.
-- **Recursive CTE traversal `surat_references`** (Fase 2): query plan PostgreSQL pakai stack internal untuk DFS — tapi ini implicit, tidak exposed ke kode aplikasi.
-- **Vue component lifecycle**: framework internal pakai stack untuk render order — di luar kontrol aplikasi.
+## Source Code
 
-Untuk Fase 0, stack tetap penting sebagai konsep ajar — call stack dan recursion deeply terkait.
+@anchor:stack-lifo
 
 ## Big-O
 

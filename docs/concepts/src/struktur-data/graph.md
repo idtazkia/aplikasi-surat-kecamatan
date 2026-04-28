@@ -1,16 +1,13 @@
 ---
-id: graph
+id: graph-adjacency-list
 courses: [struktur-data]
-pending: true
-prereq: [tree, set-composite-key]
-related: [tree, dag, hash-table-map]
-fase: [1, 2]
+prereq: [tree-traversal, set-composite-key]
+related: [tree-traversal, dag-cycle-detection, hash-table-map]
+fase: [0, 2]
 ---
 
 # Graph
 
-> **Status**: traversal `surat_references` di-anchor di Fase 2 (recursive CTE). Halaman ini intro pengantar + bridge dari materi kuliah.
->
 > **Map ke materi kuliah**: [Skenario 4 — Ketertelusuran Korespondensi Antar-Institusi](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md). Surat-surat yang saling membalas dan men-tembuskan = graph dengan multiple parent dan potensial cycle. **Tidak cukup tree** seperti di disposisi internal (Skenario 3).
 
 ## Teori

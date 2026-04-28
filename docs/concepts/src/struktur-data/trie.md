@@ -1,16 +1,13 @@
 ---
-id: trie
+id: trie-prefix-tree
 courses: [struktur-data]
-pending: true
-prereq: [tree, hash-table-map]
-related: [tree, hash-table-map]
-fase: [1, 5]
+prereq: [tree-traversal, hash-table-map]
+related: [tree-traversal, hash-table-map]
+fase: [0, 5]
 ---
 
 # Trie (Prefix Tree)
 
-> **Status**: implementasi domain di Fase 5 (autocomplete pengirim + normalisasi nama untuk dedup). Halaman ini intro pengantar.
->
 > **Map ke materi kuliah**: [Skenario 6 Bagian A — Autocomplete instansi pengirim](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md). "Saat staf mulai mengetik 'Kem...', sistem harus segera menampilkan daftar instansi yang cocok... harus terasa instan (di bawah 50 milidetik) meski ada 500 pilihan."
 
 ## Teori
@@ -75,74 +72,29 @@ LIMIT 10;
 
 Untuk dataset 500 instansi, ILIKE prefix dengan B-Tree text index sudah ~20ms. Cukup untuk Skenario 6 requirement (50ms). Tidak butuh in-memory trie.
 
-### Fase 5 — Normalisasi + Fuzzy Match
+### Reference Implementation
 
-Saat dataset tumbuh atau kebutuhan fuzzy ("Kemendagari" should match "Kemendagri"), implementasi trie eksplisit jadi worth it:
+Generic trie di Go ada di `internal/datastruct/trie`. Sederhana, runes (Unicode), Insert/Contains/SearchPrefix/Delete dengan empty-branch cleanup. Cocok untuk dipakai langsung di backend Go atau di-port ke TypeScript untuk client-side cache.
 
-- **Trie untuk autocomplete prefix** — di client (IndexedDB Dexie atau pure in-memory)
-- **Levenshtein dengan trie pruning** — fuzzy match faster dari pure brute-force karena early termination via trie shared prefix
+## Source Code
 
-Marker concept akan ditambah di Fase 5 saat fuzzy normalisasi diimplementasi.
+@anchor:trie-prefix-tree
 
-## Bridge ke Materi Kuliah Java
+### Trade-off In-Memory Trie vs SQL `ILIKE`
 
-Java implementasi trie tipikal:
-
-```java
-class TrieNode {
-    Map<Character, TrieNode> children = new HashMap<>();
-    boolean isEndOfWord = false;
-    String wordIfEnd;  // optional: simpan kata lengkap di leaf
-}
-
-class Trie {
-    private TrieNode root = new TrieNode();
-
-    public void insert(String word) {
-        TrieNode node = root;
-        for (char c : word.toCharArray()) {
-            node = node.children.computeIfAbsent(c, k -> new TrieNode());
-        }
-        node.isEndOfWord = true;
-        node.wordIfEnd = word;
-    }
-
-    public List<String> searchPrefix(String prefix) {
-        TrieNode node = root;
-        for (char c : prefix.toCharArray()) {
-            node = node.children.get(c);
-            if (node == null) return List.of();
-        }
-        return collectWords(node, new ArrayList<>());
-    }
-
-    private List<String> collectWords(TrieNode node, List<String> acc) {
-        if (node.isEndOfWord) acc.add(node.wordIfEnd);
-        for (TrieNode child : node.children.values()) {
-            collectWords(child, acc);
-        }
-        return acc;
-    }
-}
-```
-
-Trade-off Java in-memory vs SQL `ILIKE` di app:
-
-| Materi Kuliah (Java in-memory trie) | aplikasi-surat-kecamatan (Fase 1 SQL) |
+| In-memory trie (`internal/datastruct/trie`) | PostgreSQL `ILIKE 'prefix%'` (Fase 1) |
 |---|---|
 | O(k + p) lookup | O(log n + p) dengan B-Tree text index |
 | Memory: load semua kata ke trie | Memory: O(1) di app, DB kelola index |
 | Update: butuh sync trie + DB | Update: cukup INSERT/UPDATE row |
-| Fuzzy match dengan Levenshtein: O(k × m × |alphabet|) dengan pruning | SQL: ekstensi `pg_trgm` + GIN index untuk fuzzy |
+| Fuzzy match dengan Levenshtein: O(k × m × \|alphabet\|) dengan pruning | SQL: ekstensi `pg_trgm` + GIN index untuk fuzzy |
 
 Untuk **scale kecil (≤ 1000 entries)**: SQL cukup, no trie needed.
 Untuk **scale besar (> 100k entries) atau frequent fuzzy lookup**: in-memory trie atau dedicated search engine (Elasticsearch, Meilisearch) menang.
 
 ## Eksperimen
 
-1. Implementasi trie sederhana di TypeScript (port dari Java di atas). Insert 100 kata acak, ukur:
-   - Memory footprint (`process.memoryUsage().heapUsed`)
-   - Lookup prefix time vs `Array.filter(s => s.startsWith(prefix))`
+1. Buka `internal/datastruct/trie/trie.go` dan baca implementasinya. Tulis benchmark Go: insert 1000 nama instansi, lookup prefix vs `slices.IndexFunc` linear scan. Bandingkan ns/op.
 
 2. Pertanyaan: kalau alphabet hanya `[a-z]` (26 char), kenapa lebih efisien pakai array of 26 child slots daripada `Map`? Berapa speedup factor expected?
 

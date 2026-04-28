@@ -58,11 +58,8 @@ export const useEduPanelStore = defineStore("eduPanel", () => {
     lastPayload.value = payload;
   }
 
-  // concept:hash-table-map:start
-  // Hash table lookup concept_id -> ConceptLink. JavaScript Map = hash table
-  // dengan amortized O(1) get/set. Tanpa map, lookup linear O(n) per render
-  // student drawer yang punya banyak concept_id (mahal kalau catalog tumbuh).
-  // Tradeoff: O(n) build sekali vs O(n*m) per query untuk m render.
+  // Hash table lookup concept_id -> ConceptLink. Untuk pembahasan konsep
+  // hash table di-anchor di Go reference impl: internal/datastruct/hashset.
   const linkByID = computed(() => {
     const map = new Map<string, ConceptLink>();
     for (const link of links.value?.links ?? []) {
@@ -70,7 +67,6 @@ export const useEduPanelStore = defineStore("eduPanel", () => {
     }
     return map;
   });
-  // concept:hash-table-map:end
 
   return {
     enabled,
