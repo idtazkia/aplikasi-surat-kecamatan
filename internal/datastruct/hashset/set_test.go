@@ -88,6 +88,37 @@ func TestSet_Difference(t *testing.T) {
 	}
 }
 
+func TestSet_DifferenceAsymmetric(t *testing.T) {
+	a := FromSlice([]int{1, 2})
+	b := FromSlice([]int{2, 3})
+	if d := a.Difference(b); d.Len() != 1 || !d.Contains(1) {
+		t.Errorf("a\\b = %v, want {1}", d.ToSlice())
+	}
+	if d := b.Difference(a); d.Len() != 1 || !d.Contains(3) {
+		t.Errorf("b\\a = %v, want {3}", d.ToSlice())
+	}
+}
+
+func TestSet_IsSubset(t *testing.T) {
+	a := FromSlice([]int{1, 2})
+	b := FromSlice([]int{1, 2, 3})
+
+	if !a.IsSubset(b) {
+		t.Error("a should be subset of b")
+	}
+	if b.IsSubset(a) {
+		t.Error("b should not be subset of a (b larger)")
+	}
+	// Reflexive: every set is subset of itself
+	if !a.IsSubset(a) {
+		t.Error("a should be subset of itself")
+	}
+	// Empty set is subset of any set
+	if !New[int]().IsSubset(b) {
+		t.Error("empty set should be subset")
+	}
+}
+
 func TestSet_DifferentTypes(t *testing.T) {
 	type pos struct{ x, y int }
 	s := New[pos]()

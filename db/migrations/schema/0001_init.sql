@@ -19,18 +19,12 @@ CREATE TABLE permissions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- concept:set-composite-key:start
--- role_permissions = relasi M:N antara roles dan permissions, semantik set
--- mathematik: {(role, permission) | role berhak melakukan permission}.
--- Composite PK (role_id, permission_id) menjamin no duplikat — properti dasar
--- set: tidak ada elemen ganda. INSERT duplikat ditolak DB, idempotent saat seed.
 CREATE TABLE role_permissions (
     role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
     granted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (role_id, permission_id)
 );
--- concept:set-composite-key:end
 
 CREATE TABLE klasifikasi (
     id UUID PRIMARY KEY,

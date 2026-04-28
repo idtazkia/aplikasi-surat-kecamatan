@@ -72,8 +72,22 @@ func (s *Set[T]) ToSlice() []T {
 
 // concept:hash-table-map:end
 
+// concept:set-operations:start
+// Mathematical set operations: Union, Intersect, Difference. Implementasi pakai
+// hash table sebagai backing — operasi yang sebagian besar O(|S|) atau
+// O(min(|S|, |T|)) dengan O(1) membership lookup per elemen.
+//
+// Properti dasar set:
+//   - Tidak ada elemen duplikat (dijaga oleh hash-table backing).
+//   - Tidak ada urutan (map iteration order Go diacak per process).
+//   - Membership check O(1) average → set operations efficient.
+//
+// Use case: kalkulasi permission per user (union semua role's permissions),
+// validasi ACL (intersect required permissions dengan user's permissions),
+// "permission yang user belum punya" untuk audit (difference).
+
 // Union return set baru = elemen yang ada di s atau other (atau keduanya).
-// O(|s| + |other|).
+// |A ∪ B|. O(|s| + |other|).
 func (s *Set[T]) Union(other *Set[T]) *Set[T] {
 	out := New[T]()
 	for v := range s.items {
@@ -85,8 +99,8 @@ func (s *Set[T]) Union(other *Set[T]) *Set[T] {
 	return out
 }
 
-// Intersect return set = elemen di s DAN other.
-// O(min(|s|, |other|)).
+// Intersect return set = elemen yang ada di s DAN other.
+// |A ∩ B|. Iterate set yang lebih kecil — O(min(|s|, |other|)).
 func (s *Set[T]) Intersect(other *Set[T]) *Set[T] {
 	smaller, larger := s, other
 	if other.Len() < s.Len() {
@@ -101,8 +115,8 @@ func (s *Set[T]) Intersect(other *Set[T]) *Set[T] {
 	return out
 }
 
-// Difference return s \ other (elemen di s tapi tidak di other).
-// O(|s|).
+// Difference return s \ other (elemen di s tapi TIDAK di other).
+// Set difference asymmetric: A\B != B\A. O(|s|).
 func (s *Set[T]) Difference(other *Set[T]) *Set[T] {
 	out := New[T]()
 	for v := range s.items {
@@ -112,3 +126,19 @@ func (s *Set[T]) Difference(other *Set[T]) *Set[T] {
 	}
 	return out
 }
+
+// IsSubset true kalau semua elemen s ada di other (s ⊆ other).
+// O(|s|).
+func (s *Set[T]) IsSubset(other *Set[T]) bool {
+	if s.Len() > other.Len() {
+		return false
+	}
+	for v := range s.items {
+		if _, ok := other.items[v]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// concept:set-operations:end

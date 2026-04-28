@@ -1,7 +1,7 @@
 ---
-id: set-composite-key
-courses: [struktur-data, basis-data]
-prereq: [hash-table-map, btree-partial-index-soft-delete]
+id: set-operations
+courses: [struktur-data]
+prereq: [hash-table-map]
 related: [hash-table-map, append-only-immutability]
 fase: [0]
 ---
@@ -10,79 +10,116 @@ fase: [0]
 
 ## Teori
 
-**Set** = koleksi unordered tanpa duplikat. Operasi dasar:
+**Set** = abstract data type yang menyimpan koleksi *unordered*, *tanpa duplikat*. Operasi dasar:
 
-| Operasi | Kompleksitas (hash-set) | Kompleksitas (tree-set) |
+| Operasi | Hash-set (Go map) | Tree-set (BST balanced) |
 |---|---|---|
-| insert(x) | O(1) average | O(log n) |
-| contains(x) | O(1) | O(log n) |
-| delete(x) | O(1) | O(log n) |
-| union(A, B) | O(|A| + |B|) | O(|A| + |B|) |
-| intersect(A, B) | O(min(|A|, |B|)) | O(|A| + |B|) |
-| iterate sorted | O(n log n) | O(n) — tree native sorted |
+| Add(x) | O(1) average | O(log n) |
+| Contains(x) | O(1) | O(log n) |
+| Remove(x) | O(1) | O(log n) |
+| Union(A, B) | O(\|A\| + \|B\|) | O(\|A\| + \|B\|) |
+| Intersect(A, B) | O(min(\|A\|, \|B\|)) | O(\|A\| + \|B\|) |
+| Difference(A, B) | O(\|A\|) | O(\|A\| + \|B\|) |
+| Iterate sorted | O(n log n) — perlu sort dulu | O(n) — tree native sorted |
+| IsSubset(A, B) | O(\|A\|) | O(\|A\| + \|B\|) |
 
-Kapan tree-set vs hash-set:
+Kapan pilih masing-masing:
 
-- **Hash-set**: kalau operasi dominan adalah membership check, no need for ordering
-- **Tree-set**: kalau butuh range query, "smallest >= k", iterate sorted
+- **Hash-set**: kalau operasi dominan = membership check, no need for ordering. **Default pilihan untuk in-memory set di Go** (`map[K]struct{}`).
+- **Tree-set**: kalau butuh range query ("elemen ≥ k"), iterate sorted, atau bounded universe yang kecil sehingga BST balanced lebih cache-friendly.
+
+### Set Operations Mathematik
+
+| Notasi | Nama | Definisi |
+|---|---|---|
+| A ∪ B | Union | semua elemen di A atau B atau keduanya |
+| A ∩ B | Intersection | elemen yang ada di A **dan** B |
+| A \\ B | Difference | elemen di A tapi **tidak** di B |
+| A ⊆ B | Subset | semua elemen A juga ada di B |
+| A × B | Cartesian product | semua pasangan (a, b), a ∈ A, b ∈ B |
+
+Catatan: difference asymmetric. A\\B ≠ B\\A. Union dan intersect commutative dan associative.
 
 ## Implementasi di App
 
-PostgreSQL primary key komposit `(role_id, permission_id)` = set semantik:
+Reference implementation `Set[T]` generik di Go: `internal/datastruct/hashset`. Backed by `map[T]struct{}` (hash table dengan zero-byte value untuk hemat memory). Mendukung Add/Contains/Remove + set operations Union/Intersect/Difference + IsSubset.
 
-- Mathematik: `RolePermissions = {(r, p) | role r berhak permission p}`
-- Tidak ada duplikat (unique constraint dari PK)
-- `ON CONFLICT DO NOTHING` membuat seed idempotent (insert ulang = no-op)
+Use case dalam app:
 
-PK komposit di PostgreSQL = B-Tree composite index → tree-set semantik. Kalau pure unique-only diperlukan, GIN/hash index alternatif. Kita pilih B-Tree karena:
-
-1. Range query mungkin diperlukan (mis. "semua permission untuk role X" = scan range `role_id = X, permission_id any`)
-2. Sorted iteration natural
-3. Default index type, paling familiar untuk mahasiswa
+| Use case | Set yang dipakai |
+|---|---|
+| Permission user (semua permission dari semua role yang dimiliki) | Union dari permission set per role |
+| Validasi ACL ("apakah user punya semua permission yang dibutuhkan?") | IsSubset(required, user_perms) |
+| Audit "permission yang belum di-assign ke role X" | Difference(all_perms, role_perms) |
+| Visited set di graph traversal (di `internal/datastruct/graph`) | Add saat visit, Contains saat encounter neighbor |
+| Dedup elemen di slice | `FromSlice([1,2,2,3]).ToSlice()` |
 
 ## Source Code
 
-@anchor:set-composite-key
+@anchor:set-operations
 
-## Big-O di Konteks App
+@anchor:hash-table-map
 
-| Query | Kompleksitas |
-|---|---|
-| `INSERT (r, p) ON CONFLICT DO NOTHING` | O(log n) |
-| `SELECT EXISTS (... WHERE role_id=r AND permission_id=p)` | O(log n) |
-| `SELECT permission_id FROM role_permissions WHERE role_id = r` | O(log n + k), k = perms per role |
-| Set difference (perm yang belum di-assign) | O(n + m) dengan `EXCEPT` clause |
+(Set operations + hash-table backing — dua konsep yang saling melengkapi di file yang sama.)
+
+## SQL Set Operations
+
+PostgreSQL juga mendukung set operations native via `UNION`, `INTERSECT`, `EXCEPT`:
+
+```sql
+-- Semua permission yang dimiliki BAIK 'staf' DAN 'camat' (intersect)
+SELECT permission_id FROM role_permissions
+WHERE role_id = (SELECT id FROM roles WHERE code='staf')
+INTERSECT
+SELECT permission_id FROM role_permissions
+WHERE role_id = (SELECT id FROM roles WHERE code='camat');
+
+-- Permission yang dimiliki camat tapi tidak staf (difference)
+SELECT permission_id FROM role_permissions
+WHERE role_id = (SELECT id FROM roles WHERE code='camat')
+EXCEPT
+SELECT permission_id FROM role_permissions
+WHERE role_id = (SELECT id FROM roles WHERE code='staf');
+
+-- Gabungan permission yang dimiliki staf ATAU camat (union)
+SELECT permission_id FROM role_permissions
+WHERE role_id IN (SELECT id FROM roles WHERE code IN ('staf', 'camat'))
+UNION
+SELECT permission_id FROM role_permissions
+WHERE role_id = (SELECT id FROM roles WHERE code='admin');
+```
+
+Trade-off Go in-memory vs SQL:
+
+| Konteks | In-memory Set di Go | SQL `UNION/INTERSECT/EXCEPT` |
+|---|---|---|
+| Latency 1 query | O(\|A\| + \|B\|) di RAM, ns range | RTT + parse + plan + execute, ms range |
+| Batch query banyak | Sekali load semua, in-memory ops | Tiap query roundtrip |
+| Cross-table set | Kompleks (load 2 collections) | Native — SQL JOIN + set operator |
+| Memory | Linier set size | Tergantung query plan |
+
+Untuk **batch processing dengan banyak set ops kecil** (mis. ACL check per request) → in-memory Go. Untuk **set ops sekali yang melibatkan banyak data** (mis. report distinct senders bulan ini) → SQL native.
 
 ## Eksperimen
 
-1. Set operations di SQL:
-   ```sql
-   -- Semua permission yang dimiliki BAIK role 'staf' DAN 'camat' (intersect)
-   SELECT permission_id FROM role_permissions WHERE role_id = (SELECT id FROM roles WHERE code='staf')
-   INTERSECT
-   SELECT permission_id FROM role_permissions WHERE role_id = (SELECT id FROM roles WHERE code='camat');
+1. Buka `internal/datastruct/hashset/set_test.go`. Jalankan test, perhatikan asimetri `Difference` di `TestSet_DifferenceAsymmetric`.
 
-   -- Permission yang dimiliki camat tapi tidak staf (set difference)
-   SELECT permission_id FROM role_permissions WHERE role_id = (SELECT id FROM roles WHERE code='camat')
-   EXCEPT
-   SELECT permission_id FROM role_permissions WHERE role_id = (SELECT id FROM roles WHERE code='staf');
+2. Implementasi cek "user X bisa akses surat dengan access_level secret?" pakai `IsSubset`:
+   ```go
+   userPerms := hashset.FromSlice(claims.Roles).Union(... // resolve permissions per role
+   required := hashset.FromSlice([]string{"surat:read_secret"})
+   allowed := required.IsSubset(userPerms)
    ```
+   Bandingkan dengan implementasi linear scan — kapan O(1) lookup mulai matter?
 
-2. JavaScript `Set` di Vue auth store: `roles: string[]` sebenarnya bisa pakai `Set<string>`. Trade-off:
-   - Array: serialize ke localStorage natural (JSON.stringify), order preserved
-   - Set: contains-check O(1), tapi serialize butuh `[...set]`
-   
-   Kapan masing-masing menang? (Hint: berapa kali check membership per render).
+3. Pertanyaan diskusi: di Vue auth store, `roles: string[]` saat ini di-implement sebagai array biasa. Kalau diganti ke `Set<string>` (JS native Set):
+   - Bagaimana persist ke `localStorage`? (`JSON.stringify(set)` tidak work, butuh `[...set]` lalu `new Set(parsed)`)
+   - Berapa kali per render `hasRole()` dipanggil? Kalau hanya 1-2x, set vs array negligible. Kalau >10x dengan checking banyak roles, set menang.
 
-3. PostgreSQL `aliases TEXT[]` di tabel `instansi` — adalah array, bukan set. Tidak ada uniqueness constraint built-in. Implikasi untuk dedup nama pengirim (Fase 5).
-
-## Aplikasi Lain di App
-
-- **`user_roles`** komposit PK — set (user, role) tuples
-- **`surat_acl`** komposit PK — set (surat, user) untuk akses rahasia
-- **Dedup key surat masuk** = composite tuple (instansi_id, nomor_surat, tanggal_terima) — semantik set untuk deteksi duplikat
+4. **Multiset variant**: counter-based set yang allow duplikat dengan count. Use case: histogram. Implementasi pakai `map[T]int`, conceptual extension dari Set[T]. Coba implementasikan `Multiset[T]` dengan Increment, Count, Top(k).
 
 ## Referensi
 
+- [Go map[K]struct{} idiom](https://go.dev/wiki/SliceTricks#filtering-without-allocating)
 - [PostgreSQL Set Operations](https://www.postgresql.org/docs/current/queries-union.html)
-- [JavaScript Set vs Array](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set)
+- [Set theory dasar — visual](https://en.wikipedia.org/wiki/Algebra_of_sets)
