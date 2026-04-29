@@ -24,7 +24,7 @@ MemoryMax=512M
 # Security hardening
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/var/lib/aplikasi-surat-kecamatan
+ReadWritePaths=/var/lib/aplikasi-surat-kecamatan /var/lib/aplikasi-surat-kecamatan/attachments
 ProtectHome=true
 PrivateTmp=true
 PrivateDevices=true

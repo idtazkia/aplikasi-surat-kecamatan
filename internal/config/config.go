@@ -6,19 +6,21 @@ import (
 )
 
 type Config struct {
-	DatabaseURL string
-	JWTSecret   string
-	ListenAddr  string
-	LogLevel    string
-	StudentMode bool
+	DatabaseURL          string
+	JWTSecret            string
+	ListenAddr           string
+	LogLevel             string
+	StudentMode          bool
+	AttachmentStoragePath string
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		JWTSecret:   os.Getenv("JWT_SECRET"),
-		ListenAddr:  os.Getenv("LISTEN_ADDR"),
-		LogLevel:    os.Getenv("LOG_LEVEL"),
+		DatabaseURL:           os.Getenv("DATABASE_URL"),
+		JWTSecret:             os.Getenv("JWT_SECRET"),
+		ListenAddr:            os.Getenv("LISTEN_ADDR"),
+		LogLevel:              os.Getenv("LOG_LEVEL"),
+		AttachmentStoragePath: os.Getenv("ATTACHMENT_STORAGE_PATH"),
 	}
 
 	var missing []string
@@ -33,6 +35,9 @@ func Load() (*Config, error) {
 	}
 	if cfg.LogLevel == "" {
 		missing = append(missing, "LOG_LEVEL")
+	}
+	if cfg.AttachmentStoragePath == "" {
+		missing = append(missing, "ATTACHMENT_STORAGE_PATH")
 	}
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("missing required env vars: %v", missing)

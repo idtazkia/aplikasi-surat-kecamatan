@@ -29,6 +29,7 @@ JWT_SECRET=GANTI_DENGAN_RANDOM_BASE64_MIN_32_BYTE
 LISTEN_ADDR=127.0.0.1:8080
 LOG_LEVEL=info
 STUDENT_MODE_ENABLED=false
+ATTACHMENT_STORAGE_PATH=/var/lib/aplikasi-surat-kecamatan/attachments
 EOF
     chmod 640 "$ENV_DIR/env"
     chown root:"$SERVICE_USER" "$ENV_DIR/env"

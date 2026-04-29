@@ -21,10 +21,12 @@ type UserStore interface {
 
 // Deps semua dependency yang dibutuhkan router.
 type Deps struct {
-	Logger     *slog.Logger
-	Auth       *auth.Service
-	Store      UserStore
-	SuratStore SuratStore
+	Logger          *slog.Logger
+	Auth            *auth.Service
+	Store           UserStore
+	SuratStore      SuratStore
+	AttachmentStore AttachmentStore
+	AttachmentRoot  string
 }
 
 // New membangun *http.ServeMux dengan semua route ter-register.
@@ -39,6 +41,12 @@ func New(d Deps) http.Handler {
 	mux.Handle("GET /api/me", d.Auth.Middleware(http.HandlerFunc(meHandler(d))))
 	mux.Handle("GET /api/surat", d.Auth.Middleware(http.HandlerFunc(suratListHandler(d))))
 	mux.Handle("GET /api/surat/{id}", d.Auth.Middleware(http.HandlerFunc(suratDetailHandler(d))))
+	mux.Handle("POST /api/surat", d.Auth.Middleware(http.HandlerFunc(suratCreateHandler(d))))
+	mux.Handle("PATCH /api/surat/{id}", d.Auth.Middleware(http.HandlerFunc(suratUpdateHandler(d))))
+	mux.Handle("DELETE /api/surat/{id}", d.Auth.Middleware(http.HandlerFunc(suratDeleteHandler(d))))
+	mux.Handle("POST /api/surat/{id}/restore", d.Auth.Middleware(http.HandlerFunc(suratRestoreHandler(d))))
+	mux.Handle("POST /api/surat/{id}/attachments", d.Auth.Middleware(http.HandlerFunc(suratAttachmentsUploadHandler(d))))
+	mux.Handle("GET /api/surat/{id}/attachments/{att_id}", d.Auth.Middleware(http.HandlerFunc(suratAttachmentDownloadHandler(d))))
 
 	return mux
 }

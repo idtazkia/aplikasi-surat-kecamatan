@@ -38,6 +38,8 @@ COPY db/migrations /app/migrations
 COPY docker/backend-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh && chown -R surat:surat /app
 
+RUN mkdir -p /var/lib/surat/attachments && chown -R surat:surat /var/lib/surat
+
 USER surat
 EXPOSE 8080
 

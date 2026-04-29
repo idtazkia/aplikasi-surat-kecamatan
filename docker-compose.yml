@@ -50,6 +50,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       STUDENT_MODE_ENABLED: ${STUDENT_MODE_ENABLED:-false}
       APPLY_DEMO_SEED: ${APPLY_DEMO_SEED:-true}
+      ATTACHMENT_STORAGE_PATH: /var/lib/surat/attachments
+    volumes:
+      - attachments:/var/lib/surat/attachments
     ports:
       - "8080:8080"
     healthcheck:
@@ -73,3 +76,5 @@ services:
 volumes:
   pgdata:
     name: surat-pgdata
+  attachments:
+    name: surat-attachments

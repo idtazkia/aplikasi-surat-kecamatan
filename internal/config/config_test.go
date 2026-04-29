@@ -26,6 +26,7 @@ func TestLoad_AllPresent(t *testing.T) {
 	t.Setenv("LISTEN_ADDR", ":8080")
 	t.Setenv("LOG_LEVEL", "info")
 	t.Setenv("STUDENT_MODE_ENABLED", "false")
+	t.Setenv("ATTACHMENT_STORAGE_PATH", "/tmp/test-attach")
 
 	cfg, err := Load()
 	if err != nil {
