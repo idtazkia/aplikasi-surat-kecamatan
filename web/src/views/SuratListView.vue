@@ -150,6 +150,9 @@ import { h } from "vue";
         <NSpace justify="space-between" align="center">
           <NText strong>Daftar Surat</NText>
           <NSpace align="center">
+            <NButton type="primary" size="small" @click="router.push({ name: 'surat-baru' })">
+              + Surat Baru
+            </NButton>
             <NText depth="3">{{ auth.userID }} ({{ auth.roles.join(", ") }})</NText>
             <NButton size="small" @click="themeStore.toggle()">
               {{ themeStore.dark ? "☀" : "☾" }}

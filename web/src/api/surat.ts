@@ -66,6 +66,27 @@ export interface ListSuratParams {
   after_created_at?: string;
 }
 
+export interface CreateSuratPayload {
+  jenis: "masuk" | "keluar";
+  nomor_surat: string;
+  perihal: string;
+  tanggal_surat: string;
+  tanggal_terima?: string;
+  instansi_id: string;
+  klasifikasi_id?: string;
+  sifat_id?: string;
+  access_level: "public" | "restricted" | "secret";
+}
+
+export type UpdateSuratPayload = Partial<CreateSuratPayload>;
+
+export interface AddReferencePayload {
+  to_surat_id?: string;
+  external_ref?: string;
+  relationship: "balasan" | "lanjutan" | "disposisi_hasil" | "revisi" | "terkait";
+  note?: string;
+}
+
 export const suratApi = {
   list(params: ListSuratParams = {}): Promise<SuratListResponse> {
     const qs = new URLSearchParams();
@@ -80,5 +101,94 @@ export const suratApi = {
 
   get(id: string): Promise<SuratDetail> {
     return apiClient.get<SuratDetail>(`/api/surat/${id}`);
+  },
+
+  create(p: CreateSuratPayload): Promise<{ id: string }> {
+    return apiClient.post<{ id: string }>("/api/surat", p);
+  },
+
+  update(id: string, p: UpdateSuratPayload): Promise<{ status: string }> {
+    return apiClient.patch<{ status: string }>(`/api/surat/${id}`, p);
+  },
+
+  remove(id: string): Promise<{ status: string }> {
+    return apiClient.delete<{ status: string }>(`/api/surat/${id}`);
+  },
+
+  // Upload attachments via multipart. Field name "primary" untuk PDF utama,
+  // selain itu di-treat sebagai "lampiran".
+  async uploadAttachments(
+    id: string,
+    files: { file: File; role: "primary" | "lampiran" }[],
+  ): Promise<{ uploaded: { id: string; file_name: string }[] }> {
+    const fd = new FormData();
+    for (const { file, role } of files) {
+      fd.append(role, file, file.name);
+    }
+    const authRaw = localStorage.getItem("surat-kec-auth");
+    const headers: Record<string, string> = {};
+    if (authRaw) {
+      try {
+        const auth = JSON.parse(authRaw);
+        if (auth.accessToken) headers["Authorization"] = `Bearer ${auth.accessToken}`;
+      } catch { /* ignore */ }
+    }
+    const resp = await fetch(`/api/surat/${id}/attachments`, {
+      method: "POST",
+      body: fd,
+      headers,
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Upload gagal (${resp.status}): ${text}`);
+    }
+    return resp.json();
+  },
+
+  attachmentDownloadURL(suratID: string, attID: string): string {
+    return `/api/surat/${suratID}/attachments/${attID}`;
+  },
+
+  addReference(id: string, p: AddReferencePayload): Promise<{ id: string }> {
+    return apiClient.post<{ id: string }>(`/api/surat/${id}/references`, p);
+  },
+
+  removeReference(suratID: string, refID: string): Promise<{ status: string }> {
+    return apiClient.delete<{ status: string }>(`/api/surat/${suratID}/references/${refID}`);
+  },
+};
+
+export interface InstansiItem {
+  id: string;
+  nama_kanonik: string;
+  aliases: string[];
+  alamat?: string;
+  kontak?: string;
+}
+
+export interface LookupItem {
+  id: string;
+  kode: string;
+  nama: string;
+  deskripsi?: string;
+}
+
+export const direktoriApi = {
+  searchInstansi(q: string, limit = 20): Promise<{ items: InstansiItem[] }> {
+    const qs = new URLSearchParams({ limit: String(limit) });
+    if (q) qs.set("q", q);
+    return apiClient.get<{ items: InstansiItem[] }>(`/api/instansi?${qs}`);
+  },
+
+  createInstansi(p: { nama_kanonik: string; aliases?: string[]; alamat?: string; kontak?: string }): Promise<{ id: string }> {
+    return apiClient.post<{ id: string }>("/api/instansi", { aliases: [], ...p });
+  },
+
+  listKlasifikasi(): Promise<{ items: LookupItem[] }> {
+    return apiClient.get<{ items: LookupItem[] }>("/api/klasifikasi");
+  },
+
+  listSifat(): Promise<{ items: LookupItem[] }> {
+    return apiClient.get<{ items: LookupItem[] }>("/api/sifat");
   },
 };

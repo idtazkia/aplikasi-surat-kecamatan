@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import {
   NLayout, NLayoutHeader, NLayoutContent, NSpace, NButton, NText, NCard, NTag,
   NDescriptions, NDescriptionsItem, NList, NListItem, NThing, NSpin, NEmpty, NIcon,
+  NPopconfirm,
   useMessage,
 } from "naive-ui";
 import { suratApi, type SuratDetail, type SuratReference } from "@/api/surat";
@@ -70,15 +71,77 @@ function refLabel(ref: SuratReference, direction: "predecessor" | "successor"): 
     : relationshipReverseLabel[ref.relationship] ?? ref.relationship;
 }
 
+async function handleDelete() {
+  if (!detail.value) return;
+  try {
+    await suratApi.remove(detail.value.id);
+    message.success("Surat dihapus");
+    router.push({ name: "surat-list" });
+  } catch (e) {
+    message.error("Gagal menghapus surat");
+    console.error(e);
+  }
+}
+
+function handleEdit() {
+  if (!detail.value) return;
+  router.push({ name: "surat-edit", params: { id: detail.value.id } });
+}
+
+function downloadAttachment(attID: string) {
+  if (!detail.value) return;
+  const url = suratApi.attachmentDownloadURL(detail.value.id, attID);
+  // Trigger download dengan auth header — pakai fetch + blob URL untuk include bearer token
+  const authRaw = localStorage.getItem("surat-kec-auth");
+  let token = "";
+  if (authRaw) {
+    try {
+      token = JSON.parse(authRaw).accessToken ?? "";
+    } catch { /* ignore */ }
+  }
+  fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    .then((resp) => {
+      if (!resp.ok) throw new Error(`Download gagal: ${resp.status}`);
+      return resp.blob().then((blob) => ({ blob, dispo: resp.headers.get("Content-Disposition") }));
+    })
+    .then(({ blob, dispo }) => {
+      const blobURL = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobURL;
+      // Extract filename from Content-Disposition kalau ada
+      const m = dispo?.match(/filename="?([^"]+)"?/);
+      a.download = m ? m[1] : "lampiran";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobURL);
+    })
+    .catch((e) => {
+      message.error("Gagal mengunduh lampiran");
+      console.error(e);
+    });
+}
+
 onMounted(fetchDetail);
 </script>
 
 <template>
   <NLayout style="height: 100vh">
     <NLayoutHeader bordered style="padding: 12px 24px">
-      <NSpace align="center">
-        <NButton text @click="router.push({ name: 'surat-list' })">← Daftar</NButton>
-        <NText strong>Detail Surat</NText>
+      <NSpace justify="space-between" align="center">
+        <NSpace align="center">
+          <NButton text @click="router.push({ name: 'surat-list' })">← Daftar</NButton>
+          <NText strong>Detail Surat</NText>
+        </NSpace>
+        <NSpace v-if="detail" align="center">
+          <NButton size="small" @click="handleEdit">Edit</NButton>
+          <NPopconfirm @positive-click="handleDelete">
+            <template #trigger>
+              <NButton size="small" type="error" tertiary>Hapus</NButton>
+            </template>
+            Yakin hapus surat ini? (Soft delete — bisa di-restore admin.)
+          </NPopconfirm>
+        </NSpace>
       </NSpace>
     </NLayoutHeader>
 
@@ -138,9 +201,12 @@ onMounted(fetchDetail);
                     {{ att.file_name }}
                   </template>
                   <template #header-extra>
-                    <NTag size="small" :type="att.role === 'primary' ? 'info' : 'default'">
-                      {{ att.role === "primary" ? "Utama" : "Lampiran" }}
-                    </NTag>
+                    <NSpace>
+                      <NTag size="small" :type="att.role === 'primary' ? 'info' : 'default'">
+                        {{ att.role === "primary" ? "Utama" : "Lampiran" }}
+                      </NTag>
+                      <NButton size="tiny" @click="downloadAttachment(att.id)">Unduh</NButton>
+                    </NSpace>
                   </template>
                   <template #description>
                     {{ formatBytes(att.file_size) }} · {{ att.mime_type }}

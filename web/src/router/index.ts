@@ -21,9 +21,19 @@ const router = createRouter({
       component: () => import("@/views/SuratListView.vue"),
     },
     {
+      path: "/surat/baru",
+      name: "surat-baru",
+      component: () => import("@/views/SuratFormView.vue"),
+    },
+    {
       path: "/surat/:id",
       name: "surat-detail",
       component: () => import("@/views/SuratDetailView.vue"),
+    },
+    {
+      path: "/surat/:id/edit",
+      name: "surat-edit",
+      component: () => import("@/views/SuratFormView.vue"),
     },
   ],
 });

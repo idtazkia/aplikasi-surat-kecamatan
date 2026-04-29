@@ -84,6 +84,7 @@ async function globalSetup(): Promise<() => Promise<void>> {
       LISTEN_ADDR: `127.0.0.1:${BACKEND_PORT}`,
       LOG_LEVEL: "warn",
       STUDENT_MODE_ENABLED: "false",
+      ATTACHMENT_STORAGE_PATH: path.join(REPO_ROOT, "tmp", "e2e-attachments"),
     },
     stdio: ["ignore", "inherit", "inherit"],
   });
