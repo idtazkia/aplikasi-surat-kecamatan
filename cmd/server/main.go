@@ -52,9 +52,10 @@ func main() {
 	st := store.New(pool)
 
 	handler := server.New(server.Deps{
-		Logger: logger,
-		Auth:   authSvc,
-		Store:  st,
+		Logger:     logger,
+		Auth:       authSvc,
+		Store:      st,
+		SuratStore: st,
 	})
 
 	srv := &http.Server{

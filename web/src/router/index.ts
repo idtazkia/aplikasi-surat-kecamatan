@@ -13,7 +13,17 @@ const router = createRouter({
     {
       path: "/",
       name: "home",
-      component: () => import("@/views/HomeView.vue"),
+      redirect: { name: "surat-list" },
+    },
+    {
+      path: "/surat",
+      name: "surat-list",
+      component: () => import("@/views/SuratListView.vue"),
+    },
+    {
+      path: "/surat/:id",
+      name: "surat-detail",
+      component: () => import("@/views/SuratDetailView.vue"),
     },
   ],
 });

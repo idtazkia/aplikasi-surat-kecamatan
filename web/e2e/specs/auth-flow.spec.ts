@@ -6,8 +6,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("akses / tanpa login -> redirect ke /login dengan ?next", async ({ page }) => {
-  await page.goto("/");
-  await expect(page).toHaveURL(/\/login\?next=\/?$/);
+  await page.goto("/surat");
+  await expect(page).toHaveURL(/\/login\?next=/);
 });
 
 test("login -> refresh page -> tetap authenticated", async ({ page }) => {
@@ -15,15 +15,15 @@ test("login -> refresh page -> tetap authenticated", async ({ page }) => {
   await page.getByPlaceholder("staf1 / camat / admin").fill("staf1");
   await page.getByPlaceholder("demo123").fill("demo123");
   await Promise.all([
-    page.waitForURL("/"),
+    page.waitForURL(/\/surat$/),
     page.getByRole("button", { name: "Masuk" }).click(),
   ]);
 
   // Hard refresh
   await page.reload();
 
-  await expect(page).toHaveURL("/");
-  await expect(page.getByText(/User: .+ \(staf\)/)).toBeVisible();
+  await expect(page).toHaveURL(/\/surat$/);
+  await expect(page.getByText("Daftar Surat")).toBeVisible();
 });
 
 test("logout -> token cleared dari localStorage + redirect login", async ({ page }) => {
@@ -31,7 +31,7 @@ test("logout -> token cleared dari localStorage + redirect login", async ({ page
   await page.getByPlaceholder("staf1 / camat / admin").fill("staf1");
   await page.getByPlaceholder("demo123").fill("demo123");
   await Promise.all([
-    page.waitForURL("/"),
+    page.waitForURL(/\/surat$/),
     page.getByRole("button", { name: "Masuk" }).click(),
   ]);
 
@@ -50,13 +50,12 @@ test("dark mode toggle persist setelah refresh", async ({ page }) => {
   await page.getByPlaceholder("staf1 / camat / admin").fill("staf1");
   await page.getByPlaceholder("demo123").fill("demo123");
   await Promise.all([
-    page.waitForURL("/"),
+    page.waitForURL(/\/surat$/),
     page.getByRole("button", { name: "Masuk" }).click(),
   ]);
 
-  // Toggle ke dark
-  const toggle = page.locator('.n-switch').first();
-  await toggle.click();
+  // Toggle dark mode lewat tombol di header (☾ atau ☀)
+  await page.getByRole("button", { name: /☾|☀/ }).click();
 
   // Verify localStorage
   const theme = await page.evaluate(() => localStorage.getItem("surat-kec-theme"));

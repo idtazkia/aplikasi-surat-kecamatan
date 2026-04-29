@@ -23,6 +23,7 @@
 - [Bcrypt Password Hashing](./algoritma/bcrypt.md)
 - [JWT dengan HMAC-SHA256](./algoritma/jwt-hmac.md)
 - [Operation Log & Idempotency](./algoritma/operation-log.md)
+- [Keyset Pagination](./algoritma/keyset-pagination.md)
 
 # Basis Data
 

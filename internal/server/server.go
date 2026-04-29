@@ -21,9 +21,10 @@ type UserStore interface {
 
 // Deps semua dependency yang dibutuhkan router.
 type Deps struct {
-	Logger *slog.Logger
-	Auth   *auth.Service
-	Store  UserStore
+	Logger     *slog.Logger
+	Auth       *auth.Service
+	Store      UserStore
+	SuratStore SuratStore
 }
 
 // New membangun *http.ServeMux dengan semua route ter-register.
@@ -34,8 +35,10 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("POST /api/auth/login", loginHandler(d))
 	mux.HandleFunc("POST /api/auth/refresh", refreshHandler(d))
 
-	// Protected example (Fase 0 placeholder): dipakai untuk smoke test middleware.
+	// Protected: butuh access token.
 	mux.Handle("GET /api/me", d.Auth.Middleware(http.HandlerFunc(meHandler(d))))
+	mux.Handle("GET /api/surat", d.Auth.Middleware(http.HandlerFunc(suratListHandler(d))))
+	mux.Handle("GET /api/surat/{id}", d.Auth.Middleware(http.HandlerFunc(suratDetailHandler(d))))
 
 	return mux
 }

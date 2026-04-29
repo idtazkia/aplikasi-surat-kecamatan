@@ -14,12 +14,12 @@ test("login dengan kredensial valid -> redirect ke home", async ({ page }) => {
 
   // Click submit, tunggu navigation
   await Promise.all([
-    page.waitForURL("/"),
+    page.waitForURL(/\/surat$/),
     page.getByRole("button", { name: "Masuk" }).click(),
   ]);
 
-  // Home view tampil dengan user info
-  await expect(page.getByText(/User: .+ \(staf\)/)).toBeVisible();
+  // Surat list view tampil
+  await expect(page.getByText("Daftar Surat")).toBeVisible();
 
   // Token tersimpan di localStorage
   const stored = await page.evaluate(() => localStorage.getItem("surat-kec-auth"));
@@ -60,24 +60,24 @@ test("login dengan field kosong -> warning", async ({ page }) => {
   await expect(page).toHaveURL(/\/login/);
 });
 
-test("login sebagai camat -> role camat ter-decode dari token", async ({ page }) => {
+test("login sebagai camat -> role camat tampil di header", async ({ page }) => {
   await page.getByPlaceholder("staf1 / camat / admin").fill("camat");
   await page.getByPlaceholder("demo123").fill("demo123");
   await Promise.all([
-    page.waitForURL("/"),
+    page.waitForURL(/\/surat$/),
     page.getByRole("button", { name: "Masuk" }).click(),
   ]);
 
-  await expect(page.getByText(/User: .+ \(camat\)/)).toBeVisible();
+  await expect(page.getByText(/\(camat\)/)).toBeVisible();
 });
 
 test("login sebagai admin -> role admin", async ({ page }) => {
   await page.getByPlaceholder("staf1 / camat / admin").fill("admin");
   await page.getByPlaceholder("demo123").fill("demo123");
   await Promise.all([
-    page.waitForURL("/"),
+    page.waitForURL(/\/surat$/),
     page.getByRole("button", { name: "Masuk" }).click(),
   ]);
 
-  await expect(page.getByText(/User: .+ \(admin\)/)).toBeVisible();
+  await expect(page.getByText(/\(admin\)/)).toBeVisible();
 });
