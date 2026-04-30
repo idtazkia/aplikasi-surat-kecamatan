@@ -243,8 +243,19 @@ func mimeAllowed(mime string) bool {
 
 var errFileTooLarge = errors.New("file too large")
 
-// suratAttachmentDownloadHandler stream file dari disk untuk download.
+// suratAttachmentDownloadHandler stream file dengan Content-Disposition: attachment
+// (browser save as).
 func suratAttachmentDownloadHandler(d Deps) http.HandlerFunc {
+	return suratAttachmentServeHandler(d, "attachment")
+}
+
+// suratAttachmentPreviewHandler stream file dengan Content-Disposition: inline
+// supaya browser render langsung di iframe / new tab (PDF preview, image preview).
+func suratAttachmentPreviewHandler(d Deps) http.HandlerFunc {
+	return suratAttachmentServeHandler(d, "inline")
+}
+
+func suratAttachmentServeHandler(d Deps, disposition string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := auth.ClaimsFromContext(r.Context())
 		if !ok {
@@ -265,7 +276,7 @@ func suratAttachmentDownloadHandler(d Deps) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			d.Logger.Error("attachment download: surat", "err", err)
+			d.Logger.Error("attachment serve: surat", "err", err)
 			writeError(w, http.StatusInternalServerError, "internal error")
 			return
 		}
@@ -300,10 +311,9 @@ func suratAttachmentDownloadHandler(d Deps) http.HandlerFunc {
 		w.Header().Set("Content-Type", att.MimeType)
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", att.FileSize))
 		w.Header().Set("Content-Disposition",
-			fmt.Sprintf(`attachment; filename="%s"`, sanitizeFilename(att.FileName)))
+			fmt.Sprintf(`%s; filename="%s"`, disposition, sanitizeFilename(att.FileName)))
 		w.WriteHeader(http.StatusOK)
 
-		// Streaming copy — bounded buffer (32KB default), no full-file load
 		_, _ = io.Copy(w, f)
 	}
 }

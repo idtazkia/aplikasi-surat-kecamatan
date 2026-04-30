@@ -15,6 +15,13 @@ const message = useMessage();
 
 const detail = ref<SuratDetail | null>(null);
 const loading = ref(true);
+const previewURL = ref<string | null>(null);
+const previewName = ref<string>("");
+const previewMime = ref<string>("");
+
+function canPreview(mimeType: string): boolean {
+  return mimeType === "application/pdf" || mimeType.startsWith("image/");
+}
 
 const sifatTagType: Record<string, "default" | "info" | "warning" | "error"> = {
   biasa: "default",
@@ -86,6 +93,32 @@ async function handleDelete() {
 function handleEdit() {
   if (!detail.value) return;
   router.push({ name: "surat-edit", params: { id: detail.value.id } });
+}
+
+async function previewAttachment(attID: string, fileName: string, mimeType: string) {
+  if (!detail.value) return;
+  if (previewURL.value) {
+    URL.revokeObjectURL(previewURL.value);
+    previewURL.value = null;
+  }
+  try {
+    const blobURL = await suratApi.fetchAttachmentPreviewBlobURL(detail.value.id, attID);
+    previewURL.value = blobURL;
+    previewName.value = fileName;
+    previewMime.value = mimeType;
+  } catch (e) {
+    message.error("Gagal memuat preview");
+    console.error(e);
+  }
+}
+
+function closePreview() {
+  if (previewURL.value) {
+    URL.revokeObjectURL(previewURL.value);
+    previewURL.value = null;
+  }
+  previewName.value = "";
+  previewMime.value = "";
 }
 
 function downloadAttachment(attID: string) {
@@ -205,6 +238,16 @@ onMounted(fetchDetail);
                       <NTag size="small" :type="att.role === 'primary' ? 'info' : 'default'">
                         {{ att.role === "primary" ? "Utama" : "Lampiran" }}
                       </NTag>
+                      <NButton
+                        v-if="canPreview(att.mime_type)"
+                        size="tiny"
+                        type="primary"
+                        tertiary
+                        @click="previewAttachment(att.id, att.file_name, att.mime_type)"
+                        data-testid="attachment-preview-btn"
+                      >
+                        Preview
+                      </NButton>
                       <NButton size="tiny" @click="downloadAttachment(att.id)">Unduh</NButton>
                     </NSpace>
                   </template>
@@ -214,6 +257,19 @@ onMounted(fetchDetail);
                 </NThing>
               </NListItem>
             </NList>
+          </NCard>
+
+          <!-- Inline preview iframe -->
+          <NCard v-if="previewURL" :title="`Preview: ${previewName}`" data-testid="preview-card">
+            <template #header-extra>
+              <NButton size="small" @click="closePreview">Tutup</NButton>
+            </template>
+            <iframe
+              :src="previewURL"
+              data-testid="preview-iframe"
+              :title="previewName"
+              style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 4px;"
+            />
           </NCard>
 
           <!-- Riwayat korespondensi -->

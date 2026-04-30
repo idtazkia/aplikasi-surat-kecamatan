@@ -149,6 +149,30 @@ export const suratApi = {
     return `/api/surat/${suratID}/attachments/${attID}`;
   },
 
+  attachmentPreviewURL(suratID: string, attID: string): string {
+    return `/api/surat/${suratID}/attachments/${attID}/preview`;
+  },
+
+  // Fetch preview blob dengan auth header — return blob URL untuk embed di iframe.
+  // Caller bertanggungjawab URL.revokeObjectURL setelah selesai.
+  async fetchAttachmentPreviewBlobURL(suratID: string, attID: string): Promise<string> {
+    const authRaw = localStorage.getItem("surat-kec-auth");
+    let token = "";
+    if (authRaw) {
+      try {
+        token = JSON.parse(authRaw).accessToken ?? "";
+      } catch { /* ignore */ }
+    }
+    const resp = await fetch(`/api/surat/${suratID}/attachments/${attID}/preview`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!resp.ok) {
+      throw new Error(`Preview fetch gagal: ${resp.status}`);
+    }
+    const blob = await resp.blob();
+    return URL.createObjectURL(blob);
+  },
+
   addReference(id: string, p: AddReferencePayload): Promise<{ id: string }> {
     return apiClient.post<{ id: string }>(`/api/surat/${id}/references`, p);
   },

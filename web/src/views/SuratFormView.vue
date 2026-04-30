@@ -399,18 +399,20 @@ function cancel() {
 
           <NFormItem :label="form.jenis === 'masuk' ? 'Pengirim' : 'Tujuan'" required>
             <NSpace vertical style="width: 100%">
-              <NSelect
-                v-model:value="form.instansi_id"
-                :options="instansiOptions"
-                placeholder="Cari instansi..."
-                filterable
-                remote
-                :show-search="true"
-                clearable
-                @search="(q: string) => instansiQuery = q"
-              />
+              <div data-testid="instansi-field">
+                <NSelect
+                  v-model:value="form.instansi_id"
+                  :options="instansiOptions"
+                  placeholder="Cari instansi..."
+                  filterable
+                  remote
+                  :show-search="true"
+                  clearable
+                  @search="(q: string) => instansiQuery = q"
+                />
+              </div>
               <NSpace v-if="!showAddInstansiForm">
-                <NButton size="tiny" tertiary @click="showAddInstansiForm = true">
+                <NButton size="tiny" tertiary @click="showAddInstansiForm = true" data-testid="show-add-instansi">
                   + Instansi baru
                 </NButton>
               </NSpace>
@@ -419,8 +421,9 @@ function cancel() {
                   v-model:value="newInstansiNama"
                   placeholder="Nama instansi baru"
                   style="width: 280px"
+                  data-testid="new-instansi-input"
                 />
-                <NButton size="small" type="primary" @click="quickAddInstansi">Simpan</NButton>
+                <NButton size="small" type="primary" @click="quickAddInstansi" data-testid="save-new-instansi">Simpan</NButton>
                 <NButton size="small" @click="showAddInstansiForm = false; newInstansiNama = ''">Batal</NButton>
               </NSpace>
             </NSpace>
@@ -451,20 +454,24 @@ function cancel() {
           <template v-if="!isEditMode">
             <NDivider>Lampiran</NDivider>
             <NFormItem label="PDF Utama (1 file)">
-              <NUpload
-                :max="1"
-                :multiple="false"
-                :default-upload="false"
-                @change="onPrimaryFileChange"
-              >
-                <NButton>Pilih PDF Utama</NButton>
-              </NUpload>
+              <div data-testid="primary-upload">
+                <NUpload
+                  :max="1"
+                  :multiple="false"
+                  :default-upload="false"
+                  @change="onPrimaryFileChange"
+                >
+                  <NButton>Pilih PDF Utama</NButton>
+                </NUpload>
+              </div>
             </NFormItem>
 
             <NFormItem label="Lampiran Pendukung (multiple)">
-              <NUpload :multiple="true" :default-upload="false" @change="onLampiranFilesChange">
-                <NButton>Pilih Lampiran</NButton>
-              </NUpload>
+              <div data-testid="lampiran-upload">
+                <NUpload :multiple="true" :default-upload="false" @change="onLampiranFilesChange">
+                  <NButton>Pilih Lampiran</NButton>
+                </NUpload>
+              </div>
             </NFormItem>
 
             <NDivider>Riwayat Korespondensi</NDivider>
