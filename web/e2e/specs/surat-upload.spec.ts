@@ -85,6 +85,66 @@ async function createSuratWithAttachment(
 // REAL FORM UPLOAD via UI (setInputFiles + Buat Surat submit)
 // =============================================================================
 
+// Helper: pilih tanggal di NDatePicker via calendar panel click.
+// Class names dari Naive UI source (lib/date-picker/src/panel/date.js + panelHeader.js):
+//   .n-date-panel             — root panel
+//   .n-date-panel-month       — month nav header region
+//   .n-date-panel-month__month-year   — header text "MM/YYYY"
+//   .n-date-panel-month__prev / __next — prev/next month buttons
+//   .n-date-panel-dates       — grid container
+//   .n-date-panel-date        — individual day cell
+//   .n-date-panel-date--current   — TODAY marker (bukan "current month"!)
+//   .n-date-panel-date--excluded  — adjacent month cell (skip)
+//
+// Approach: click input → panel render → navigate sampai target month tampil
+// di header → click day cell yang bukan --excluded dan exact match dayNumber.
+async function pickDate(
+  page: import("@playwright/test").Page,
+  pickerInput: import("@playwright/test").Locator,
+  target: Date,
+) {
+  await pickerInput.click();
+  await page.waitForSelector(".n-date-panel", { timeout: 3000 });
+
+  const monthHeader = page.locator(".n-date-panel-month__month-year").first();
+
+  // Navigate sampai header menunjukkan target month + year.
+  // Naive UI default format: "04 / 2026" atau "Apr 2026" tergantung locale.
+  // Compare via parseable date string atau via text contains check.
+  for (let i = 0; i < 60; i++) {
+    const headerText = (await monthHeader.textContent())?.trim() ?? "";
+    // Try parse — if matches target month, stop
+    const parsed = new Date(headerText.replace("/", " "));
+    if (
+      !isNaN(parsed.getTime()) &&
+      parsed.getMonth() === target.getMonth() &&
+      parsed.getFullYear() === target.getFullYear()
+    ) {
+      break;
+    }
+    // Decide direction
+    const goNext = isNaN(parsed.getTime())
+      ? false
+      : new Date(target.getFullYear(), target.getMonth()).getTime() >
+        new Date(parsed.getFullYear(), parsed.getMonth()).getTime();
+    const navBtn = page.locator(
+      goNext ? ".n-date-panel-month__next" : ".n-date-panel-month__prev",
+    ).first();
+    await navBtn.click();
+    await page.waitForTimeout(80);
+  }
+
+  // Click day cell — exact match dayNumber, exclude adjacent month (--excluded).
+  const dayStr = String(target.getDate());
+  await page
+    .locator(".n-date-panel-date:not(.n-date-panel-date--excluded)")
+    .filter({ hasText: new RegExp(`^${dayStr}$`) })
+    .first()
+    .click();
+
+  await page.waitForTimeout(200);
+}
+
 test("form /surat/baru: setInputFiles real PDF → file ter-attach di NUpload list (pre-submit)", async ({ page }) => {
   await loginAs(page, "staf1");
   await page.goto("/surat/baru");
@@ -110,6 +170,65 @@ test("form /surat/baru: setInputFiles real PDF → file ter-attach di NUpload li
   await expect(page.getByText("surat-utama.pdf").first()).toBeVisible();
   await expect(page.getByText("lampiran-1.pdf").first()).toBeVisible();
   await expect(page.getByText("lampiran-2.pdf").first()).toBeVisible();
+});
+
+// Real form submit end-to-end: fill all required fields via UI (date picker
+// pakai calendar panel click, instansi NSelect pakai search), upload files,
+// submit, verify hasil di detail page.
+test("FULL UI: fill form + setInputFiles + submit → detail menampilkan 3 lampiran dengan role tag yang benar", async ({ page }) => {
+  await loginAs(page, "staf1");
+  await page.goto("/surat/baru");
+
+  await expect(page.getByPlaceholder("045/123/IV/2026")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+
+  // Fill text fields
+  await page.getByPlaceholder("045/123/IV/2026").fill("UPLOAD-FULL/01/2026");
+  await page.getByPlaceholder("Subject surat").fill("Full UI form test");
+
+  // Tanggal Surat + Tanggal Terima via calendar panel
+  const dateInputs = page.locator(".n-date-picker input");
+  await pickDate(page, dateInputs.nth(0), new Date(2026, 3, 15)); // April 15, 2026
+  await pickDate(page, dateInputs.nth(1), new Date(2026, 3, 16));
+
+  // Instansi NSelect: click → type → pick first option
+  const instansiSelect = page.locator('[data-testid="instansi-field"] .n-base-selection');
+  await instansiSelect.click();
+  await page.keyboard.type("Kemendagri", { delay: 30 });
+  await page.waitForTimeout(900);
+  await page.locator(".n-base-select-option").first().click();
+
+  // Upload files
+  await page.locator('[data-testid="primary-upload"] input[type="file"]').setInputFiles({
+    name: "surat-utama.pdf",
+    mimeType: "application/pdf",
+    buffer: MINIMAL_PDF,
+  });
+  await page.locator('[data-testid="lampiran-upload"] input[type="file"]').setInputFiles([
+    { name: "lampiran-1.pdf", mimeType: "application/pdf", buffer: MINIMAL_PDF },
+    { name: "lampiran-2.pdf", mimeType: "application/pdf", buffer: MINIMAL_PDF },
+  ]);
+
+  // Submit — wait redirect ke /surat/<UUID> (UUID format, exclude /surat/baru)
+  await Promise.all([
+    page.waitForURL(/\/surat\/[0-9a-f]{8}-/i, { timeout: 20000 }),
+    page.getByRole("button", { name: "Buat Surat" }).click(),
+  ]);
+
+  // Detail page — verify metadata + 3 lampiran muncul
+  await expect(page.locator("body")).toContainText("Full UI form test");
+  await expect(page.locator("body")).toContainText("UPLOAD-FULL/01/2026");
+
+  await expect(page.getByText("surat-utama.pdf").first()).toBeVisible();
+  await expect(page.getByText("lampiran-1.pdf").first()).toBeVisible();
+  await expect(page.getByText("lampiran-2.pdf").first()).toBeVisible();
+
+  // Role tag count
+  const lampiranCard = page.locator(".n-card").filter({ hasText: /^Lampiran/ }).first();
+  const utamaCount = await lampiranCard.locator(".n-tag", { hasText: /^Utama$/ }).count();
+  const lampiranCount = await lampiranCard.locator(".n-tag", { hasText: /^Lampiran$/ }).count();
+  expect(utamaCount).toBe(1);
+  expect(lampiranCount).toBe(2);
 });
 
 // Real form submit dengan multipart upload — pakai page.request multipart
