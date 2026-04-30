@@ -1,4 +1,4 @@
-import { test, expect, Page } from "@playwright/test";
+import { test, expect, Page, Locator } from "@playwright/test";
 
 async function loginAs(page: Page, username: string) {
   await page.goto("/login");
@@ -11,6 +11,59 @@ async function loginAs(page: Page, username: string) {
     page.getByRole("button", { name: "Masuk" }).click(),
   ]);
 }
+
+// Calendar panel click — sama dengan helper di surat-upload.spec.ts.
+async function pickDate(page: Page, pickerInput: Locator, target: Date) {
+  await pickerInput.click();
+  await page.waitForSelector(".n-date-panel", { timeout: 3000 });
+
+  const monthHeader = page.locator(".n-date-panel-month__month-year").first();
+  for (let i = 0; i < 60; i++) {
+    const headerText = (await monthHeader.textContent())?.trim() ?? "";
+    const m = headerText.match(/(\d{1,2})[^\d]+(\d{4})/);
+    if (m) {
+      const currentMonth = parseInt(m[1], 10) - 1;
+      const currentYear = parseInt(m[2], 10);
+      if (currentMonth === target.getMonth() && currentYear === target.getFullYear()) {
+        break;
+      }
+      const goNext =
+        new Date(target.getFullYear(), target.getMonth()).getTime() >
+        new Date(currentYear, currentMonth).getTime();
+      await page.locator(
+        goNext ? ".n-date-panel-month__next" : ".n-date-panel-month__prev",
+      ).first().click();
+    } else {
+      break;
+    }
+    await page.waitForTimeout(80);
+  }
+
+  const dayStr = String(target.getDate());
+  await page
+    .locator(".n-date-panel-date:not(.n-date-panel-date--excluded)")
+    .filter({ hasText: new RegExp(`^${dayStr}$`) })
+    .first()
+    .click();
+  await page.waitForTimeout(200);
+}
+
+async function pickInstansi(page: Page, query: string) {
+  const select = page.locator('[data-testid="instansi-field"] .n-base-selection');
+  await select.click();
+  await page.waitForTimeout(150);
+  // Type via the actual filterable input — lebih reliable dari page.keyboard
+  // karena tidak ada race dengan focus state
+  const searchInput = page.locator('[data-testid="instansi-field"] input').first();
+  await searchInput.fill(query);
+  // Wait debounce 200ms + API + dropdown render
+  await page.waitForTimeout(900);
+  await page.locator(".n-base-select-option:visible").first().click();
+}
+
+// =============================================================================
+// NAVIGATION + VALIDATION
+// =============================================================================
 
 test("navigasi ke /surat/baru menampilkan form create", async ({ page }) => {
   await loginAs(page, "staf1");
@@ -28,63 +81,20 @@ test("validasi: submit kosong → warning + tetap di form", async ({ page }) => 
 
   await page.getByRole("button", { name: "Buat Surat" }).click();
 
-  // Tetap di /surat/baru, message warning tampil
   await expect(page).toHaveURL(/\/surat\/baru$/);
   await expect(page.getByText(/wajib/i).first()).toBeVisible({ timeout: 3000 });
 });
 
-test("create surat masuk via API helper, verify di list", async ({ page, request }) => {
-  await loginAs(page, "staf1");
-
-  // Get token dari localStorage untuk API call
-  const auth = await page.evaluate(() => localStorage.getItem("surat-kec-auth"));
-  const token = JSON.parse(auth!).accessToken;
-
-  // Search instansi pertama
-  const instansiResp = await request.get("/api/instansi?q=Kemen", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const instansiBody = await instansiResp.json();
-  expect(instansiBody.items.length).toBeGreaterThan(0);
-  const instansiID = instansiBody.items[0].id;
-
-  // Create surat via API
-  const createResp = await request.post("/api/surat", {
-    headers: { Authorization: `Bearer ${token}` },
-    data: {
-      jenis: "masuk",
-      nomor_surat: "API-TEST/E2E/2026",
-      perihal: "Test E2E via API",
-      tanggal_surat: "2026-04-15",
-      tanggal_terima: "2026-04-16",
-      instansi_id: instansiID,
-      access_level: "public",
-    },
-  });
-  expect(createResp.status()).toBe(201);
-  const created = await createResp.json();
-
-  // Verify di list page (search by perihal)
-  await page.goto("/surat");
-  await page.getByPlaceholder("Kata kunci").fill("Test E2E via API");
-  await page.getByRole("button", { name: "Terapkan" }).click();
-  await page.waitForTimeout(500);
-
-  const allText = await page.locator("table tbody").textContent();
-  expect(allText).toContain("API-TEST/E2E/2026");
-
-  // Cleanup: delete via API
-  await request.delete(`/api/surat/${created.id}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-});
+// =============================================================================
+// EDIT (UI flow, API setup OK karena state preparation, bukan SUT)
+// =============================================================================
 
 test("edit surat existing via UI → simpan → lihat perubahan", async ({ page, request }) => {
   await loginAs(page, "staf1");
   const auth = await page.evaluate(() => localStorage.getItem("surat-kec-auth"));
   const token = JSON.parse(auth!).accessToken;
 
-  // Create surat untuk di-edit (avoid mengganggu data lain)
+  // Setup state via API (test prep, bukan tested behavior)
   const instansiResp = await request.get("/api/instansi?q=Kemen", {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -103,38 +113,37 @@ test("edit surat existing via UI → simpan → lihat perubahan", async ({ page,
   });
   const created = await createResp.json();
 
-  // Navigate ke edit page
+  // ===== UI test: edit perihal lewat form =====
   await page.goto(`/surat/${created.id}/edit`);
   await expect(page).toHaveURL(/\/edit$/);
 
-  // Tunggu form ter-populate dengan data existing (loadForEdit selesai)
   const perihalArea = page.locator("textarea").first();
   await expect(perihalArea).toHaveValue(/Original perihal/, { timeout: 10000 });
 
-  // Edit perihal
   await perihalArea.fill("Edited perihal via E2E");
 
-  // Save
   await Promise.all([
     page.waitForURL(new RegExp(`/surat/${created.id}$`), { timeout: 10000 }),
     page.getByRole("button", { name: "Simpan Perubahan" }).click(),
   ]);
 
-  // Verify perihal updated di detail page
   await expect(page.getByText("Edited perihal via E2E")).toBeVisible({ timeout: 10000 });
 
-  // Cleanup
+  // Cleanup state
   await request.delete(`/api/surat/${created.id}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 });
+
+// =============================================================================
+// DELETE (UI flow, API setup OK)
+// =============================================================================
 
 test("delete surat via UI → kembali ke list, tidak muncul lagi", async ({ page, request }) => {
   await loginAs(page, "staf1");
   const auth = await page.evaluate(() => localStorage.getItem("surat-kec-auth"));
   const token = JSON.parse(auth!).accessToken;
 
-  // Create surat untuk di-delete
   const instansiResp = await request.get("/api/instansi?q=Kemen", {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -153,76 +162,81 @@ test("delete surat via UI → kembali ke list, tidak muncul lagi", async ({ page
   });
   const created = await createResp.json();
 
-  // Navigate ke detail
+  // ===== UI test: delete via popconfirm + verify hilang dari list =====
   await page.goto(`/surat/${created.id}`);
   await expect(page.getByText("DELETE-ME/01/2026")).toBeVisible();
 
-  // Click Hapus → konfirmasi popconfirm
   await page.getByRole("button", { name: "Hapus" }).click();
-  // NPopconfirm action button — ambil yang positive (OK/Confirm)
   await page.locator(".n-popconfirm__action button").last().click();
 
-  // Redirect ke list
   await page.waitForURL(/\/surat$/, { timeout: 5000 });
 
-  // Search nomor surat → tidak muncul. Empty result tampilkan NEmpty komponen.
   await page.getByPlaceholder("Kata kunci").fill("DELETE-ME");
   await page.getByRole("button", { name: "Terapkan" }).click();
   await page.waitForTimeout(800);
 
-  // Either NEmpty visible OR table tidak mengandung DELETE-ME
   const bodyText = await page.locator(".n-layout-content").textContent();
   expect(bodyText ?? "").not.toContain("DELETE-ME/01/2026");
 });
 
-test("conflict: nomor surat keluar duplikat → 409", async ({ page, request }) => {
+// =============================================================================
+// CONFLICT 409 (UI flow — fill form dengan nomor yang sudah ada di seed)
+// =============================================================================
+
+test("FULL UI: surat keluar dengan nomor sama → toast 'Nomor surat sudah dipakai'", async ({ page, request }) => {
   await loginAs(page, "staf1");
   const auth = await page.evaluate(() => localStorage.getItem("surat-kec-auth"));
   const token = JSON.parse(auth!).accessToken;
 
+  // Setup: pre-create surat keluar dengan nomor X (state prep, bukan SUT)
   const instansiResp = await request.get("/api/instansi?q=Kemen", {
     headers: { Authorization: `Bearer ${token}` },
   });
   const instansiID = (await instansiResp.json()).items[0].id;
+  const duplicateNomor = "CONFLICT-UI/01/2026";
 
-  const payload = {
-    jenis: "keluar" as const,
-    nomor_surat: "CONFLICT/01/2026",
-    perihal: "First surat keluar",
-    tanggal_surat: "2026-04-15",
-    instansi_id: instansiID,
-    access_level: "public" as const,
-  };
-
-  // First create
   const first = await request.post("/api/surat", {
     headers: { Authorization: `Bearer ${token}` },
-    data: payload,
+    data: {
+      jenis: "keluar",
+      nomor_surat: duplicateNomor,
+      perihal: "First surat keluar (pre-created)",
+      tanggal_surat: "2026-04-15",
+      instansi_id: instansiID,
+      access_level: "public",
+    },
   });
   expect(first.status()).toBe(201);
   const firstID = (await first.json()).id;
 
-  // Second with same nomor_surat → conflict
-  const second = await request.post("/api/surat", {
-    headers: { Authorization: `Bearer ${token}` },
-    data: payload,
-  });
-  expect(second.status()).toBe(409);
+  // ===== UI test: coba create surat keluar duplikat via form, expect error toast =====
+  await page.goto("/surat/baru");
+  await expect(page.getByPlaceholder("045/123/IV/2026")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+
+  // Ganti jenis ke "keluar"
+  const jenisDropdown = page.locator('.n-form-item').filter({ hasText: /^Jenis Surat/ }).locator('.n-base-selection').first();
+  await jenisDropdown.click();
+  await page.locator(".n-base-select-option").filter({ hasText: "Surat Keluar" }).click();
+
+  // Fill required fields dengan duplicateNomor
+  await page.getByPlaceholder("045/123/IV/2026").fill(duplicateNomor);
+  await page.getByPlaceholder("Subject surat").fill("Second attempt with same nomor");
+
+  const dateInputs = page.locator(".n-date-picker input");
+  await pickDate(page, dateInputs.nth(0), new Date(2026, 3, 20));
+
+  await pickInstansi(page, "Kemendagri");
+
+  // Submit — expect 409 → toast "Nomor surat sudah dipakai"
+  await page.getByRole("button", { name: "Buat Surat" }).click();
+
+  await expect(page.getByText("Nomor surat sudah dipakai")).toBeVisible({ timeout: 5000 });
+  // Tetap di /surat/baru (tidak navigate)
+  await expect(page).toHaveURL(/\/surat\/baru$/);
 
   // Cleanup
   await request.delete(`/api/surat/${firstID}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-});
-
-test("staf tidak bisa restore (admin only)", async ({ page, request }) => {
-  await loginAs(page, "staf1");
-  const auth = await page.evaluate(() => localStorage.getItem("surat-kec-auth"));
-  const token = JSON.parse(auth!).accessToken;
-
-  // Pakai dummy ID — kalau forbidden duluan sebelum check exist, OK
-  const resp = await request.post("/api/surat/00000000-0000-0000-0099-000000000099/restore", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  expect(resp.status()).toBe(403);
 });

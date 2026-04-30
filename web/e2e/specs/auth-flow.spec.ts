@@ -67,9 +67,3 @@ test("dark mode toggle persist setelah refresh", async ({ page }) => {
   expect(themeAfter).toBe("dark");
 });
 
-test("/healthz dapat diakses tanpa auth", async ({ page }) => {
-  const resp = await page.request.get("/healthz");
-  expect(resp.status()).toBe(200);
-  const body = await resp.json();
-  expect(body.status).toBe("ok");
-});

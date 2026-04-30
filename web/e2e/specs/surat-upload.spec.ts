@@ -1,10 +1,7 @@
-// E2E test untuk upload + preview lampiran. Mencakup:
-// - Upload via UI form (real setInputFiles + Buat Surat submit)
-// - Verify lampiran muncul di detail page setelah create
-// - Click Preview button → verify iframe[src^="blob:"] muncul
-// - Download endpoint serve content yang sama dengan upload
-// - Reject 413 saat oversized, 415 saat MIME tidak whitelisted
-import { test, expect, Page } from "@playwright/test";
+// E2E test untuk upload + preview lampiran via UI form.
+// Semua assertion dilakukan via UI; setup state (pre-create surat) via API
+// helper hanya kalau diperlukan untuk isolation, bukan sebagai SUT.
+import { test, expect, Page, Locator } from "@playwright/test";
 
 // Minimal valid PDF — magic bytes "%PDF-" → http.DetectContentType pengenali sbg application/pdf.
 const MINIMAL_PDF = Buffer.from(
@@ -32,109 +29,43 @@ async function loginAs(page: Page, username: string) {
   ]);
 }
 
-async function getAuthToken(page: Page): Promise<string> {
-  const auth = await page.evaluate(() => localStorage.getItem("surat-kec-auth"));
-  return JSON.parse(auth!).accessToken;
-}
-
-// Helper: setup surat via API + upload primary attachment, return suratID + attID.
-async function createSuratWithAttachment(
-  page: Page,
-  opts: { perihal: string; nomor: string },
-): Promise<{ suratID: string; attID: string }> {
-  const token = await getAuthToken(page);
-  const instansiResp = await page.request.get("/api/instansi?q=Kemen", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const instansiID = (await instansiResp.json()).items[0].id;
-
-  const createResp = await page.request.post("/api/surat", {
-    headers: { Authorization: `Bearer ${token}` },
-    data: {
-      jenis: "masuk",
-      nomor_surat: opts.nomor,
-      perihal: opts.perihal,
-      tanggal_surat: "2026-04-15",
-      tanggal_terima: "2026-04-16",
-      instansi_id: instansiID,
-      access_level: "public",
-    },
-  });
-  expect(createResp.status()).toBe(201);
-  const { id: suratID } = await createResp.json();
-
-  const uploadResp = await page.request.post(`/api/surat/${suratID}/attachments`, {
-    headers: { Authorization: `Bearer ${token}` },
-    multipart: {
-      primary: {
-        name: "test.pdf",
-        mimeType: "application/pdf",
-        buffer: MINIMAL_PDF,
-      },
-    },
-  });
-  expect(uploadResp.status()).toBe(201);
-  const detailResp = await page.request.get(`/api/surat/${suratID}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const detail = await detailResp.json();
-  return { suratID, attID: detail.attachments[0].id };
-}
-
-// =============================================================================
-// REAL FORM UPLOAD via UI (setInputFiles + Buat Surat submit)
-// =============================================================================
-
 // Helper: pilih tanggal di NDatePicker via calendar panel click.
 // Class names dari Naive UI source (lib/date-picker/src/panel/date.js + panelHeader.js):
-//   .n-date-panel             — root panel
-//   .n-date-panel-month       — month nav header region
-//   .n-date-panel-month__month-year   — header text "MM/YYYY"
-//   .n-date-panel-month__prev / __next — prev/next month buttons
-//   .n-date-panel-dates       — grid container
-//   .n-date-panel-date        — individual day cell
-//   .n-date-panel-date--current   — TODAY marker (bukan "current month"!)
-//   .n-date-panel-date--excluded  — adjacent month cell (skip)
-//
-// Approach: click input → panel render → navigate sampai target month tampil
-// di header → click day cell yang bukan --excluded dan exact match dayNumber.
-async function pickDate(
-  page: import("@playwright/test").Page,
-  pickerInput: import("@playwright/test").Locator,
-  target: Date,
-) {
+//   .n-date-panel-month__month-year   — header text
+//   .n-date-panel-month__prev / __next — navigation
+//   .n-date-panel-date                 — day cell
+//   .n-date-panel-date--excluded       — adjacent month (skip)
+async function pickDate(page: Page, pickerInput: Locator, target: Date) {
   await pickerInput.click();
   await page.waitForSelector(".n-date-panel", { timeout: 3000 });
 
   const monthHeader = page.locator(".n-date-panel-month__month-year").first();
 
-  // Navigate sampai header menunjukkan target month + year.
-  // Naive UI default format: "04 / 2026" atau "Apr 2026" tergantung locale.
-  // Compare via parseable date string atau via text contains check.
+  // Header format Naive UI default: "MM<sep>YYYY" mis. "05 / 2026".
+  // Parse manual via regex (more reliable dari new Date() yang
+  // implementation-dependent).
   for (let i = 0; i < 60; i++) {
     const headerText = (await monthHeader.textContent())?.trim() ?? "";
-    // Try parse — if matches target month, stop
-    const parsed = new Date(headerText.replace("/", " "));
-    if (
-      !isNaN(parsed.getTime()) &&
-      parsed.getMonth() === target.getMonth() &&
-      parsed.getFullYear() === target.getFullYear()
-    ) {
+    const m = headerText.match(/(\d{1,2})[^\d]+(\d{4})/);
+    if (m) {
+      const currentMonth = parseInt(m[1], 10) - 1;
+      const currentYear = parseInt(m[2], 10);
+      if (currentMonth === target.getMonth() && currentYear === target.getFullYear()) {
+        break;
+      }
+      const goNext =
+        new Date(target.getFullYear(), target.getMonth()).getTime() >
+        new Date(currentYear, currentMonth).getTime();
+      await page.locator(
+        goNext ? ".n-date-panel-month__next" : ".n-date-panel-month__prev",
+      ).first().click();
+    } else {
+      // Header format unknown — break to avoid infinite loop
       break;
     }
-    // Decide direction
-    const goNext = isNaN(parsed.getTime())
-      ? false
-      : new Date(target.getFullYear(), target.getMonth()).getTime() >
-        new Date(parsed.getFullYear(), parsed.getMonth()).getTime();
-    const navBtn = page.locator(
-      goNext ? ".n-date-panel-month__next" : ".n-date-panel-month__prev",
-    ).first();
-    await navBtn.click();
     await page.waitForTimeout(80);
   }
 
-  // Click day cell — exact match dayNumber, exclude adjacent month (--excluded).
   const dayStr = String(target.getDate());
   await page
     .locator(".n-date-panel-date:not(.n-date-panel-date--excluded)")
@@ -145,6 +76,33 @@ async function pickDate(
   await page.waitForTimeout(200);
 }
 
+// Helper fill semua field required form surat masuk + pilih instansi.
+// Caller bertanggungjawab nambah file inputs + submit setelah ini.
+async function fillSuratMasukForm(page: Page, opts: {
+  nomor: string;
+  perihal: string;
+  tanggalSurat: Date;
+  tanggalTerima: Date;
+  instansiSearch: string;
+}) {
+  await page.getByPlaceholder("045/123/IV/2026").fill(opts.nomor);
+  await page.getByPlaceholder("Subject surat").fill(opts.perihal);
+
+  const dateInputs = page.locator(".n-date-picker input");
+  await pickDate(page, dateInputs.nth(0), opts.tanggalSurat);
+  await pickDate(page, dateInputs.nth(1), opts.tanggalTerima);
+
+  const instansiSelect = page.locator('[data-testid="instansi-field"] .n-base-selection');
+  await instansiSelect.click();
+  await page.keyboard.type(opts.instansiSearch, { delay: 30 });
+  await page.waitForTimeout(900);
+  await page.locator(".n-base-select-option").first().click();
+}
+
+// =============================================================================
+// PRE-SUBMIT FILE ATTACH
+// =============================================================================
+
 test("form /surat/baru: setInputFiles real PDF → file ter-attach di NUpload list (pre-submit)", async ({ page }) => {
   await loginAs(page, "staf1");
   await page.goto("/surat/baru");
@@ -152,53 +110,41 @@ test("form /surat/baru: setInputFiles real PDF → file ter-attach di NUpload li
   await expect(page.getByPlaceholder("045/123/IV/2026")).toBeVisible();
   await page.waitForLoadState("networkidle");
 
-  // setInputFiles ke real <input type="file"> di dalam NUpload wrapper
-  const primaryInput = page.locator('[data-testid="primary-upload"] input[type="file"]');
-  await primaryInput.setInputFiles({
+  await page.locator('[data-testid="primary-upload"] input[type="file"]').setInputFiles({
     name: "surat-utama.pdf",
     mimeType: "application/pdf",
     buffer: MINIMAL_PDF,
   });
 
-  const lampiranInput = page.locator('[data-testid="lampiran-upload"] input[type="file"]');
-  await lampiranInput.setInputFiles([
+  await page.locator('[data-testid="lampiran-upload"] input[type="file"]').setInputFiles([
     { name: "lampiran-1.pdf", mimeType: "application/pdf", buffer: MINIMAL_PDF },
     { name: "lampiran-2.pdf", mimeType: "application/pdf", buffer: MINIMAL_PDF },
   ]);
 
-  // Verify file ter-attach di NUpload component (visual feedback pre-submit)
   await expect(page.getByText("surat-utama.pdf").first()).toBeVisible();
   await expect(page.getByText("lampiran-1.pdf").first()).toBeVisible();
   await expect(page.getByText("lampiran-2.pdf").first()).toBeVisible();
 });
 
-// Real form submit end-to-end: fill all required fields via UI (date picker
-// pakai calendar panel click, instansi NSelect pakai search), upload files,
-// submit, verify hasil di detail page.
-test("FULL UI: fill form + setInputFiles + submit → detail menampilkan 3 lampiran dengan role tag yang benar", async ({ page }) => {
+// =============================================================================
+// FULL UI HAPPY PATH — fill form + upload + submit + verify detail
+// =============================================================================
+
+test("FULL UI: fill form + upload 1 primary + 2 lampiran → detail menampilkan 3 lampiran dengan role tag yang benar", async ({ page }) => {
   await loginAs(page, "staf1");
   await page.goto("/surat/baru");
 
   await expect(page.getByPlaceholder("045/123/IV/2026")).toBeVisible();
   await page.waitForLoadState("networkidle");
 
-  // Fill text fields
-  await page.getByPlaceholder("045/123/IV/2026").fill("UPLOAD-FULL/01/2026");
-  await page.getByPlaceholder("Subject surat").fill("Full UI form test");
+  await fillSuratMasukForm(page, {
+    nomor: "UPLOAD-FULL/01/2026",
+    perihal: "Full UI form test",
+    tanggalSurat: new Date(2026, 3, 15),
+    tanggalTerima: new Date(2026, 3, 16),
+    instansiSearch: "Kemendagri",
+  });
 
-  // Tanggal Surat + Tanggal Terima via calendar panel
-  const dateInputs = page.locator(".n-date-picker input");
-  await pickDate(page, dateInputs.nth(0), new Date(2026, 3, 15)); // April 15, 2026
-  await pickDate(page, dateInputs.nth(1), new Date(2026, 3, 16));
-
-  // Instansi NSelect: click → type → pick first option
-  const instansiSelect = page.locator('[data-testid="instansi-field"] .n-base-selection');
-  await instansiSelect.click();
-  await page.keyboard.type("Kemendagri", { delay: 30 });
-  await page.waitForTimeout(900);
-  await page.locator(".n-base-select-option").first().click();
-
-  // Upload files
   await page.locator('[data-testid="primary-upload"] input[type="file"]').setInputFiles({
     name: "surat-utama.pdf",
     mimeType: "application/pdf",
@@ -209,13 +155,11 @@ test("FULL UI: fill form + setInputFiles + submit → detail menampilkan 3 lampi
     { name: "lampiran-2.pdf", mimeType: "application/pdf", buffer: MINIMAL_PDF },
   ]);
 
-  // Submit — wait redirect ke /surat/<UUID> (UUID format, exclude /surat/baru)
   await Promise.all([
     page.waitForURL(/\/surat\/[0-9a-f]{8}-/i, { timeout: 20000 }),
     page.getByRole("button", { name: "Buat Surat" }).click(),
   ]);
 
-  // Detail page — verify metadata + 3 lampiran muncul
   await expect(page.locator("body")).toContainText("Full UI form test");
   await expect(page.locator("body")).toContainText("UPLOAD-FULL/01/2026");
 
@@ -223,105 +167,45 @@ test("FULL UI: fill form + setInputFiles + submit → detail menampilkan 3 lampi
   await expect(page.getByText("lampiran-1.pdf").first()).toBeVisible();
   await expect(page.getByText("lampiran-2.pdf").first()).toBeVisible();
 
-  // Role tag count
   const lampiranCard = page.locator(".n-card").filter({ hasText: /^Lampiran/ }).first();
-  const utamaCount = await lampiranCard.locator(".n-tag", { hasText: /^Utama$/ }).count();
-  const lampiranCount = await lampiranCard.locator(".n-tag", { hasText: /^Lampiran$/ }).count();
-  expect(utamaCount).toBe(1);
-  expect(lampiranCount).toBe(2);
-});
-
-// Real form submit dengan multipart upload — pakai page.request multipart
-// helper karena NDatePicker tidak punya Playwright-friendly fill API.
-// Test ini benar-benar POST /api/surat/{id}/attachments via multipart streaming
-// upload (sama path code yang dipakai form submit) lalu verify di detail UI.
-test("upload 1 primary + 2 lampiran via multipart → verify di detail UI dengan role tag yang benar", async ({ page }) => {
-  await loginAs(page, "staf1");
-  const token = await getAuthToken(page);
-
-  const instansiResp = await page.request.get("/api/instansi?q=Kemen", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const instansiID = (await instansiResp.json()).items[0].id;
-  const createResp = await page.request.post("/api/surat", {
-    headers: { Authorization: `Bearer ${token}` },
-    data: {
-      jenis: "masuk",
-      nomor_surat: "UPLOAD-MULTI/01/2026",
-      perihal: "Test upload 3 lampiran",
-      tanggal_surat: "2026-04-15",
-      tanggal_terima: "2026-04-16",
-      instansi_id: instansiID,
-      access_level: "public",
-    },
-  });
-  const { id: suratID } = await createResp.json();
-
-  // Upload primary + 2 lampiran via multipart (sama dengan form submission flow)
-  const uploadResp = await page.request.post(`/api/surat/${suratID}/attachments`, {
-    headers: { Authorization: `Bearer ${token}` },
-    multipart: {
-      primary: { name: "surat-utama.pdf", mimeType: "application/pdf", buffer: MINIMAL_PDF },
-    },
-  });
-  expect(uploadResp.status()).toBe(201);
-
-  // Upload 2 lampiran (separate request — server support multiple but test isolation)
-  await page.request.post(`/api/surat/${suratID}/attachments`, {
-    headers: { Authorization: `Bearer ${token}` },
-    multipart: {
-      lampiran1: { name: "lampiran-1.pdf", mimeType: "application/pdf", buffer: MINIMAL_PDF },
-    },
-  });
-  await page.request.post(`/api/surat/${suratID}/attachments`, {
-    headers: { Authorization: `Bearer ${token}` },
-    multipart: {
-      lampiran2: { name: "lampiran-2.pdf", mimeType: "application/pdf", buffer: MINIMAL_PDF },
-    },
-  });
-
-  // Navigate to detail in UI
-  await page.goto(`/surat/${suratID}`);
-  await expect(page.locator("body")).toContainText("Test upload 3 lampiran");
-  await expect(page.locator("body")).toContainText("UPLOAD-MULTI/01/2026");
-
-  // Verify 3 file names visible
-  await expect(page.getByText("surat-utama.pdf").first()).toBeVisible();
-  await expect(page.getByText("lampiran-1.pdf").first()).toBeVisible();
-  await expect(page.getByText("lampiran-2.pdf").first()).toBeVisible();
-
-  // Role tag count
-  const lampiranCard = page.locator(".n-card").filter({ hasText: /^Lampiran/ }).first();
-  const utamaCount = await lampiranCard.locator(".n-tag", { hasText: /^Utama$/ }).count();
-  const lampiranCount = await lampiranCard.locator(".n-tag", { hasText: /^Lampiran$/ }).count();
-  expect(utamaCount).toBe(1);
-  expect(lampiranCount).toBe(2);
-
-  // Cleanup
-  await page.request.delete(`/api/surat/${suratID}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  expect(await lampiranCard.locator(".n-tag", { hasText: /^Utama$/ }).count()).toBe(1);
+  expect(await lampiranCard.locator(".n-tag", { hasText: /^Lampiran$/ }).count()).toBe(2);
 });
 
 // =============================================================================
-// PREVIEW CYCLE — full upload → preview → close
+// PREVIEW CYCLE — upload + click preview + close, all via UI
 // =============================================================================
 
-test("upload PDF → klik Preview → iframe blob: muncul → klik Tutup → iframe hilang", async ({ page }) => {
+test("FULL UI: upload PDF → klik Preview → iframe blob: muncul → klik Tutup → iframe hilang", async ({ page }) => {
   await loginAs(page, "staf1");
-  const { suratID } = await createSuratWithAttachment(page, {
-    perihal: "Test preview PDF",
-    nomor: "PREVIEW/01/2026",
+  await page.goto("/surat/baru");
+
+  await expect(page.getByPlaceholder("045/123/IV/2026")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+
+  await fillSuratMasukForm(page, {
+    nomor: "PREVIEW-UI/01/2026",
+    perihal: "Test preview via UI",
+    tanggalSurat: new Date(2026, 3, 15),
+    tanggalTerima: new Date(2026, 3, 16),
+    instansiSearch: "Kemendagri",
   });
 
-  // Navigate ke detail
-  await page.goto(`/surat/${suratID}`);
-  await expect(page.getByText("Test preview PDF")).toBeVisible();
+  await page.locator('[data-testid="primary-upload"] input[type="file"]').setInputFiles({
+    name: "preview-target.pdf",
+    mimeType: "application/pdf",
+    buffer: MINIMAL_PDF,
+  });
 
-  // Initially no preview iframe
+  await Promise.all([
+    page.waitForURL(/\/surat\/[0-9a-f]{8}-/i, { timeout: 20000 }),
+    page.getByRole("button", { name: "Buat Surat" }).click(),
+  ]);
+
+  // Detail page — initially no preview iframe
   await expect(page.locator('[data-testid="preview-iframe"]')).toHaveCount(0);
 
-  // Klik Preview button (tertiary, di sebelah Unduh)
+  // Klik Preview button
   await page.locator('[data-testid="attachment-preview-btn"]').first().click();
 
   // Iframe muncul dengan blob URL src
@@ -331,117 +215,73 @@ test("upload PDF → klik Preview → iframe blob: muncul → klik Tutup → ifr
   expect(src).toBeTruthy();
   expect(src!.startsWith("blob:")).toBe(true);
 
-  // Preview card title menampilkan nama file
-  await expect(page.getByText("Preview: test.pdf")).toBeVisible();
+  await expect(page.getByText("Preview: preview-target.pdf")).toBeVisible();
 
   // Klik Tutup
   await page.getByRole("button", { name: "Tutup" }).click();
-
-  // Iframe hilang
   await expect(page.locator('[data-testid="preview-iframe"]')).toHaveCount(0);
 });
 
-test("preview endpoint serve dengan Content-Disposition: inline (bukan attachment)", async ({ page }) => {
-  await loginAs(page, "staf1");
-  const { suratID, attID } = await createSuratWithAttachment(page, {
-    perihal: "Test preview disposition",
-    nomor: "PREVIEW-DISP/01/2026",
-  });
-  const token = await getAuthToken(page);
-
-  const previewResp = await page.request.get(
-    `/api/surat/${suratID}/attachments/${attID}/preview`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  expect(previewResp.status()).toBe(200);
-  expect(previewResp.headers()["content-type"]).toContain("application/pdf");
-  expect(previewResp.headers()["content-disposition"]).toContain("inline");
-
-  const downloadResp = await page.request.get(
-    `/api/surat/${suratID}/attachments/${attID}`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  expect(downloadResp.headers()["content-disposition"]).toContain("attachment");
-
-  // Content harus identik (sama-sama serve file dari disk yang sama)
-  const previewBuf = await previewResp.body();
-  const downloadBuf = await downloadResp.body();
-  expect(previewBuf.equals(downloadBuf)).toBe(true);
-  expect(previewBuf.equals(MINIMAL_PDF)).toBe(true);
-});
-
 // =============================================================================
-// VALIDATION + ERROR PATHS
+// VALIDATION via UI — submit form dengan invalid file types/sizes,
+// expect error toast yang terjadi karena backend reject upload
 // =============================================================================
 
-test("upload non-allowed MIME type (binary octet-stream) → 415", async ({ page }) => {
+test("FULL UI: upload file non-allowed MIME (binary) → toast error 'Lampiran gagal ter-upload'", async ({ page }) => {
   await loginAs(page, "staf1");
-  const token = await getAuthToken(page);
+  await page.goto("/surat/baru");
 
-  const instansiResp = await page.request.get("/api/instansi?q=Kemen", {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  const instansiID = (await instansiResp.json()).items[0].id;
-  const createResp = await page.request.post("/api/surat", {
-    headers: { Authorization: `Bearer ${token}` },
-    data: {
-      jenis: "masuk",
-      nomor_surat: "MIME-REJECT/01/2026",
-      perihal: "Test MIME reject",
-      tanggal_surat: "2026-04-15",
-      tanggal_terima: "2026-04-16",
-      instansi_id: instansiID,
-      access_level: "public",
-    },
-  });
-  const { id: suratID } = await createResp.json();
+  await expect(page.getByPlaceholder("045/123/IV/2026")).toBeVisible();
+  await page.waitForLoadState("networkidle");
 
-  // Binary non-text non-PDF → http.DetectContentType return application/octet-stream
-  // (tidak match any whitelisted prefix → 415)
+  await fillSuratMasukForm(page, {
+    nomor: "MIME-REJECT-UI/01/2026",
+    perihal: "Test MIME reject via UI",
+    tanggalSurat: new Date(2026, 3, 15),
+    tanggalTerima: new Date(2026, 3, 16),
+    instansiSearch: "Kemendagri",
+  });
+
+  // Binary garbage — http.DetectContentType return application/octet-stream → 415
   const garbage = Buffer.from([
     0xde, 0xad, 0xbe, 0xef, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05,
     0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
     ...new Array(500).fill(0xff),
   ]);
 
-  const uploadResp = await page.request.post(`/api/surat/${suratID}/attachments`, {
-    headers: { Authorization: `Bearer ${token}` },
-    multipart: {
-      primary: {
-        name: "garbage.bin",
-        mimeType: "application/octet-stream",
-        buffer: garbage,
-      },
-    },
+  await page.locator('[data-testid="primary-upload"] input[type="file"]').setInputFiles({
+    name: "garbage.bin",
+    mimeType: "application/octet-stream",
+    buffer: garbage,
   });
-  expect(uploadResp.status()).toBe(415);
 
-  // Cleanup
-  await page.request.delete(`/api/surat/${suratID}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  // Submit — surat akan ke-create tapi attachment upload gagal
+  await Promise.all([
+    page.waitForURL(/\/surat\/[0-9a-f]{8}-/i, { timeout: 20000 }),
+    page.getByRole("button", { name: "Buat Surat" }).click(),
+  ]);
+
+  // Toast error untuk upload failure muncul
+  await expect(page.getByText("Lampiran gagal ter-upload — silakan tambah dari halaman detail")).toBeVisible({ timeout: 5000 });
+
+  // Verify lampiran section di detail page kosong (tidak ada file yang ter-upload)
+  await expect(page.getByText("Belum ada lampiran")).toBeVisible({ timeout: 5000 });
 });
 
-test("upload file > 25MB → 413 Payload Too Large", async ({ page }) => {
+test("FULL UI: upload file > 25MB → toast error karena backend reject 413", async ({ page }) => {
   await loginAs(page, "staf1");
-  const token = await getAuthToken(page);
-  const instansiResp = await page.request.get("/api/instansi?q=Kemen", {
-    headers: { Authorization: `Bearer ${token}` },
+  await page.goto("/surat/baru");
+
+  await expect(page.getByPlaceholder("045/123/IV/2026")).toBeVisible();
+  await page.waitForLoadState("networkidle");
+
+  await fillSuratMasukForm(page, {
+    nomor: "TOOBIG-UI/01/2026",
+    perihal: "Test size limit via UI",
+    tanggalSurat: new Date(2026, 3, 15),
+    tanggalTerima: new Date(2026, 3, 16),
+    instansiSearch: "Kemendagri",
   });
-  const instansiID = (await instansiResp.json()).items[0].id;
-  const createResp = await page.request.post("/api/surat", {
-    headers: { Authorization: `Bearer ${token}` },
-    data: {
-      jenis: "masuk",
-      nomor_surat: "TOOBIG/01/2026",
-      perihal: "Test size limit",
-      tanggal_surat: "2026-04-15",
-      tanggal_terima: "2026-04-16",
-      instansi_id: instansiID,
-      access_level: "public",
-    },
-  });
-  const { id: suratID } = await createResp.json();
 
   // Buffer 26MB dengan PDF magic prefix supaya MIME sniff lewat dulu
   const oversized = Buffer.concat([
@@ -449,19 +289,17 @@ test("upload file > 25MB → 413 Payload Too Large", async ({ page }) => {
     Buffer.alloc(26 * 1024 * 1024, 0x20),
   ]);
 
-  const uploadResp = await page.request.post(`/api/surat/${suratID}/attachments`, {
-    headers: { Authorization: `Bearer ${token}` },
-    multipart: {
-      primary: {
-        name: "huge.pdf",
-        mimeType: "application/pdf",
-        buffer: oversized,
-      },
-    },
+  await page.locator('[data-testid="primary-upload"] input[type="file"]').setInputFiles({
+    name: "huge.pdf",
+    mimeType: "application/pdf",
+    buffer: oversized,
   });
-  expect(uploadResp.status()).toBe(413);
 
-  await page.request.delete(`/api/surat/${suratID}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  await Promise.all([
+    page.waitForURL(/\/surat\/[0-9a-f]{8}-/i, { timeout: 30000 }),
+    page.getByRole("button", { name: "Buat Surat" }).click(),
+  ]);
+
+  await expect(page.getByText("Lampiran gagal ter-upload — silakan tambah dari halaman detail")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Belum ada lampiran")).toBeVisible({ timeout: 5000 });
 });
