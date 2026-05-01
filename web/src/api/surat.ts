@@ -45,12 +45,21 @@ export interface SuratReference {
   created_at: string;
 }
 
+export interface SuratTembusan {
+  id: string;
+  instansi_id?: string;
+  instansi_nama?: string;
+  external_text?: string;
+  urutan: number;
+}
+
 export interface SuratDetail extends SuratListItem {
   deskripsi_klasifikasi?: string;
   nama_sifat?: string;
   attachments: SuratAttachment[];
   predecessors: SuratReference[];
   successors: SuratReference[];
+  tembusan: SuratTembusan[];
 }
 
 export interface ListSuratParams {
@@ -85,6 +94,12 @@ export interface AddReferencePayload {
   external_ref?: string;
   relationship: "balasan" | "lanjutan" | "disposisi_hasil" | "revisi" | "terkait";
   note?: string;
+}
+
+export interface AddTembusanPayload {
+  instansi_id?: string;
+  external_text?: string;
+  urutan?: number;
 }
 
 export const suratApi = {
@@ -179,6 +194,14 @@ export const suratApi = {
 
   removeReference(suratID: string, refID: string): Promise<{ status: string }> {
     return apiClient.delete<{ status: string }>(`/api/surat/${suratID}/references/${refID}`);
+  },
+
+  addTembusan(id: string, p: AddTembusanPayload): Promise<{ id: string }> {
+    return apiClient.post<{ id: string }>(`/api/surat/${id}/tembusan`, p);
+  },
+
+  removeTembusan(suratID: string, tembusanID: string): Promise<{ status: string }> {
+    return apiClient.delete<{ status: string }>(`/api/surat/${suratID}/tembusan/${tembusanID}`);
   },
 };
 

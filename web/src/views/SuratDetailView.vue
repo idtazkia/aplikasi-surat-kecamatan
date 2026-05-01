@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   NLayout, NLayoutHeader, NLayoutContent, NSpace, NButton, NText, NCard, NTag,
   NDescriptions, NDescriptionsItem, NList, NListItem, NThing, NSpin, NEmpty, NIcon,
-  NPopconfirm,
+  NPopconfirm, NModal, NSelect, NInput, NUpload,
+  type UploadFileInfo,
   useMessage,
 } from "naive-ui";
-import { suratApi, type SuratDetail, type SuratReference } from "@/api/surat";
+import { suratApi, direktoriApi, type SuratDetail, type SuratReference, type AddReferencePayload, type AddTembusanPayload } from "@/api/surat";
 
 const route = useRoute();
 const router = useRouter();
@@ -121,6 +122,227 @@ function closePreview() {
   previewMime.value = "";
 }
 
+// =============================================================================
+// Add reference dialog
+// =============================================================================
+const showAddRefDialog = ref(false);
+const newRefMode = ref<"internal" | "external">("internal");
+const newRefRelationship = ref<AddReferencePayload["relationship"]>("balasan");
+const newRefSearchQuery = ref("");
+const newRefResults = ref<{ id: string; nomor_surat: string; perihal: string }[]>([]);
+const newRefSelectedID = ref<string>("");
+const newRefExternal = ref("");
+const newRefNote = ref("");
+const submittingRef = ref(false);
+
+const relationshipOptions = [
+  { label: "Membalas", value: "balasan" },
+  { label: "Lanjutan dari", value: "lanjutan" },
+  { label: "Hasil disposisi atas", value: "disposisi_hasil" },
+  { label: "Revisi atas", value: "revisi" },
+  { label: "Terkait", value: "terkait" },
+];
+const refModeOptions = [
+  { label: "Surat existing (search)", value: "internal" },
+  { label: "External (text bebas)", value: "external" },
+];
+
+let refSearchTimeout: ReturnType<typeof setTimeout> | null = null;
+watch(newRefSearchQuery, (q) => {
+  if (refSearchTimeout) clearTimeout(refSearchTimeout);
+  refSearchTimeout = setTimeout(async () => {
+    if (!q.trim()) {
+      newRefResults.value = [];
+      return;
+    }
+    try {
+      const resp = await suratApi.list({ search: q, limit: 10 });
+      newRefResults.value = resp.items.map((it) => ({
+        id: it.id,
+        nomor_surat: it.nomor_surat,
+        perihal: it.perihal,
+      }));
+    } catch (e) {
+      console.error(e);
+    }
+  }, 200);
+});
+
+function openAddRefDialog() {
+  newRefMode.value = "internal";
+  newRefRelationship.value = "balasan";
+  newRefSearchQuery.value = "";
+  newRefResults.value = [];
+  newRefSelectedID.value = "";
+  newRefExternal.value = "";
+  newRefNote.value = "";
+  showAddRefDialog.value = true;
+}
+
+async function submitAddReference() {
+  if (!detail.value) return;
+  if (newRefMode.value === "internal" && !newRefSelectedID.value) {
+    return message.warning("Pilih surat target");
+  }
+  if (newRefMode.value === "external" && !newRefExternal.value.trim()) {
+    return message.warning("External reference text wajib diisi");
+  }
+  submittingRef.value = true;
+  try {
+    const payload: AddReferencePayload = {
+      relationship: newRefRelationship.value,
+      note: newRefNote.value.trim() || undefined,
+    };
+    if (newRefMode.value === "internal") {
+      payload.to_surat_id = newRefSelectedID.value;
+    } else {
+      payload.external_ref = newRefExternal.value.trim();
+    }
+    await suratApi.addReference(detail.value.id, payload);
+    message.success("Referensi ditambahkan");
+    showAddRefDialog.value = false;
+    await fetchDetail();
+  } catch (e) {
+    message.error("Gagal menambah referensi");
+    console.error(e);
+  } finally {
+    submittingRef.value = false;
+  }
+}
+
+async function deleteReference(refID: string) {
+  if (!detail.value) return;
+  try {
+    await suratApi.removeReference(detail.value.id, refID);
+    message.success("Referensi dihapus");
+    await fetchDetail();
+  } catch (e) {
+    message.error("Gagal menghapus referensi");
+    console.error(e);
+  }
+}
+
+// =============================================================================
+// Add attachment dialog
+// =============================================================================
+const showAddAttDialog = ref(false);
+const newAttRole = ref<"primary" | "lampiran">("lampiran");
+const newAttFiles = ref<File[]>([]);
+const submittingAtt = ref(false);
+
+function openAddAttDialog() {
+  newAttRole.value = "lampiran";
+  newAttFiles.value = [];
+  showAddAttDialog.value = true;
+}
+function onAttFilesChange(opt: { fileList: UploadFileInfo[] }) {
+  newAttFiles.value = opt.fileList.map((f) => f.file).filter((f): f is File => f != null);
+}
+async function submitAddAttachment() {
+  if (!detail.value) return;
+  if (newAttFiles.value.length === 0) {
+    return message.warning("Pilih file dulu");
+  }
+  submittingAtt.value = true;
+  try {
+    const files = newAttFiles.value.map((file) => ({ file, role: newAttRole.value }));
+    await suratApi.uploadAttachments(detail.value.id, files);
+    message.success(`${files.length} file ter-upload`);
+    showAddAttDialog.value = false;
+    await fetchDetail();
+  } catch (e) {
+    message.error("Gagal upload (cek MIME type / size limit 25MB)");
+    console.error(e);
+  } finally {
+    submittingAtt.value = false;
+  }
+}
+
+// =============================================================================
+// Add tembusan dialog
+// =============================================================================
+const showAddTembusanDialog = ref(false);
+const newTembusanMode = ref<"internal" | "external">("internal");
+const newTembusanInstansiQuery = ref("");
+const newTembusanInstansiResults = ref<{ label: string; value: string }[]>([]);
+const newTembusanInstansiID = ref<string>("");
+const newTembusanExternal = ref("");
+const submittingTembusan = ref(false);
+
+const tembusanModeOptions = [
+  { label: "Instansi (search direktori)", value: "internal" },
+  { label: "External (text bebas)", value: "external" },
+];
+
+let tembusanSearchTimeout: ReturnType<typeof setTimeout> | null = null;
+watch(newTembusanInstansiQuery, (q) => {
+  if (tembusanSearchTimeout) clearTimeout(tembusanSearchTimeout);
+  tembusanSearchTimeout = setTimeout(async () => {
+    if (!q.trim()) {
+      newTembusanInstansiResults.value = [];
+      return;
+    }
+    try {
+      const resp = await direktoriApi.searchInstansi(q, 10);
+      newTembusanInstansiResults.value = resp.items.map((it) => ({
+        label: it.nama_kanonik,
+        value: it.id,
+      }));
+    } catch (e) {
+      console.error(e);
+    }
+  }, 200);
+});
+
+function openAddTembusanDialog() {
+  newTembusanMode.value = "internal";
+  newTembusanInstansiQuery.value = "";
+  newTembusanInstansiResults.value = [];
+  newTembusanInstansiID.value = "";
+  newTembusanExternal.value = "";
+  showAddTembusanDialog.value = true;
+}
+
+async function submitAddTembusan() {
+  if (!detail.value) return;
+  if (newTembusanMode.value === "internal" && !newTembusanInstansiID.value) {
+    return message.warning("Pilih instansi target");
+  }
+  if (newTembusanMode.value === "external" && !newTembusanExternal.value.trim()) {
+    return message.warning("External text wajib diisi");
+  }
+  submittingTembusan.value = true;
+  try {
+    const payload: AddTembusanPayload = {};
+    if (newTembusanMode.value === "internal") {
+      payload.instansi_id = newTembusanInstansiID.value;
+    } else {
+      payload.external_text = newTembusanExternal.value.trim();
+    }
+    await suratApi.addTembusan(detail.value.id, payload);
+    message.success("Tembusan ditambahkan");
+    showAddTembusanDialog.value = false;
+    await fetchDetail();
+  } catch (e) {
+    message.error("Gagal menambah tembusan");
+    console.error(e);
+  } finally {
+    submittingTembusan.value = false;
+  }
+}
+
+async function deleteTembusan(tembusanID: string) {
+  if (!detail.value) return;
+  try {
+    await suratApi.removeTembusan(detail.value.id, tembusanID);
+    message.success("Tembusan dihapus");
+    await fetchDetail();
+  } catch (e) {
+    message.error("Gagal menghapus tembusan");
+    console.error(e);
+  }
+}
+
 function downloadAttachment(attID: string) {
   if (!detail.value) return;
   const url = suratApi.attachmentDownloadURL(detail.value.id, attID);
@@ -225,6 +447,11 @@ onMounted(fetchDetail);
 
           <!-- Lampiran -->
           <NCard title="Lampiran">
+            <template #header-extra>
+              <NButton size="small" type="primary" tertiary @click="openAddAttDialog" data-testid="add-attachment-btn">
+                + Tambah Lampiran
+              </NButton>
+            </template>
             <NEmpty v-if="detail.attachments.length === 0" description="Belum ada lampiran" size="small" />
             <NList v-else>
               <NListItem v-for="att in detail.attachments" :key="att.id">
@@ -272,8 +499,45 @@ onMounted(fetchDetail);
             />
           </NCard>
 
+          <!-- Tembusan -->
+          <NCard title="Tembusan" data-testid="tembusan-card">
+            <template #header-extra>
+              <NButton size="small" type="primary" tertiary @click="openAddTembusanDialog" data-testid="add-tembusan-btn">
+                + Tambah Tembusan
+              </NButton>
+            </template>
+            <NEmpty v-if="detail.tembusan.length === 0" description="Belum ada tembusan" size="small" />
+            <NList v-else>
+              <NListItem v-for="t in detail.tembusan" :key="t.id">
+                <NThing>
+                  <template #header>
+                    <NTag size="small" style="margin-right: 8px">{{ t.urutan }}</NTag>
+                    <span v-if="t.instansi_id">{{ t.instansi_nama }}</span>
+                    <span v-else>
+                      <NTag size="tiny" type="warning">External</NTag>
+                      <em style="margin-left: 4px">{{ t.external_text }}</em>
+                    </span>
+                  </template>
+                  <template #header-extra>
+                    <NPopconfirm @positive-click="deleteTembusan(t.id)">
+                      <template #trigger>
+                        <NButton size="tiny" tertiary type="error" data-testid="delete-tembusan-btn">Hapus</NButton>
+                      </template>
+                      Hapus tembusan ini?
+                    </NPopconfirm>
+                  </template>
+                </NThing>
+              </NListItem>
+            </NList>
+          </NCard>
+
           <!-- Riwayat korespondensi -->
           <NCard title="Riwayat Korespondensi">
+            <template #header-extra>
+              <NButton size="small" type="primary" tertiary @click="openAddRefDialog" data-testid="add-reference-btn">
+                + Tambah Referensi
+              </NButton>
+            </template>
             <div v-if="detail.predecessors.length === 0 && detail.successors.length === 0">
               <NEmpty description="Tidak ada surat yang berelasi" size="small" />
             </div>
@@ -297,6 +561,14 @@ onMounted(fetchDetail);
                             <em style="margin-left: 4px">{{ ref.external_ref }}</em>
                           </span>
                         </span>
+                      </template>
+                      <template #header-extra>
+                        <NPopconfirm @positive-click="deleteReference(ref.id)">
+                          <template #trigger>
+                            <NButton size="tiny" tertiary type="error" data-testid="delete-reference-btn">Hapus</NButton>
+                          </template>
+                          Hapus referensi ini?
+                        </NPopconfirm>
                       </template>
                       <template #description>
                         <em v-if="ref.note">{{ ref.note }}</em>
@@ -333,5 +605,129 @@ onMounted(fetchDetail);
         </NSpace>
       </NSpin>
     </NLayoutContent>
+
+    <!-- Add Reference Dialog -->
+    <NModal v-model:show="showAddRefDialog" preset="dialog" title="Tambah Referensi" style="width: 500px">
+      <NSpace vertical size="medium" style="margin-top: 12px">
+        <div>
+          <NText strong>Tipe relasi</NText>
+          <NSelect v-model:value="newRefRelationship" :options="relationshipOptions" />
+        </div>
+        <div>
+          <NText strong>Sumber</NText>
+          <NSelect v-model:value="newRefMode" :options="refModeOptions" />
+        </div>
+        <div v-if="newRefMode === 'internal'">
+          <NText strong>Surat target</NText>
+          <NInput v-model:value="newRefSearchQuery" placeholder="Cari berdasarkan perihal..." />
+          <div v-if="newRefResults.length > 0" style="margin-top: 8px; max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px;">
+            <div
+              v-for="r in newRefResults"
+              :key="r.id"
+              :data-testid="`ref-option-${r.id}`"
+              style="padding: 8px; cursor: pointer; border-bottom: 1px solid #f0f0f0;"
+              :style="{ backgroundColor: newRefSelectedID === r.id ? '#e6f7ff' : 'transparent' }"
+              @click="newRefSelectedID = r.id"
+            >
+              <code>{{ r.nomor_surat }}</code> — {{ r.perihal }}
+            </div>
+          </div>
+        </div>
+        <div v-else>
+          <NText strong>Reference text</NText>
+          <NInput
+            v-model:value="newRefExternal"
+            placeholder="Mis. Surat Kemendagri No. 045/XX/2024 tanggal 12 Mar 2024"
+            type="textarea"
+            :autosize="{ minRows: 2, maxRows: 4 }"
+          />
+        </div>
+        <div>
+          <NText strong>Catatan (opsional)</NText>
+          <NInput v-model:value="newRefNote" placeholder="Catatan tentang relasi ini" />
+        </div>
+      </NSpace>
+      <template #action>
+        <NSpace>
+          <NButton @click="showAddRefDialog = false">Batal</NButton>
+          <NButton type="primary" :loading="submittingRef" @click="submitAddReference" data-testid="submit-add-reference">
+            Tambah
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
+
+    <!-- Add Tembusan Dialog -->
+    <NModal v-model:show="showAddTembusanDialog" preset="dialog" title="Tambah Tembusan" style="width: 500px">
+      <NSpace vertical size="medium" style="margin-top: 12px">
+        <div>
+          <NText strong>Tipe</NText>
+          <NSelect v-model:value="newTembusanMode" :options="tembusanModeOptions" />
+        </div>
+        <div v-if="newTembusanMode === 'internal'">
+          <NText strong>Instansi</NText>
+          <NInput
+            v-model:value="newTembusanInstansiQuery"
+            placeholder="Cari nama instansi..."
+            data-testid="tembusan-instansi-search"
+          />
+          <div v-if="newTembusanInstansiResults.length > 0" style="margin-top: 8px; max-height: 200px; overflow-y: auto; border: 1px solid #eee; border-radius: 4px;">
+            <div
+              v-for="r in newTembusanInstansiResults"
+              :key="r.value"
+              :data-testid="`tembusan-option-${r.value}`"
+              style="padding: 8px; cursor: pointer; border-bottom: 1px solid #f0f0f0;"
+              :style="{ backgroundColor: newTembusanInstansiID === r.value ? '#e6f7ff' : 'transparent' }"
+              @click="newTembusanInstansiID = r.value"
+            >
+              {{ r.label }}
+            </div>
+          </div>
+        </div>
+        <div v-else>
+          <NText strong>Tujuan tembusan (text bebas)</NText>
+          <NInput
+            v-model:value="newTembusanExternal"
+            placeholder="Mis. Kepala Bidang XYZ, Pemerhati Lingkungan"
+            type="textarea"
+            :autosize="{ minRows: 2, maxRows: 4 }"
+          />
+        </div>
+      </NSpace>
+      <template #action>
+        <NSpace>
+          <NButton @click="showAddTembusanDialog = false">Batal</NButton>
+          <NButton type="primary" :loading="submittingTembusan" @click="submitAddTembusan" data-testid="submit-add-tembusan">
+            Tambah
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
+
+    <!-- Add Attachment Dialog -->
+    <NModal v-model:show="showAddAttDialog" preset="dialog" title="Tambah Lampiran" style="width: 500px">
+      <NSpace vertical size="medium" style="margin-top: 12px">
+        <div>
+          <NText strong>Tipe</NText>
+          <NSelect
+            v-model:value="newAttRole"
+            :options="[{ label: 'PDF Utama', value: 'primary' }, { label: 'Lampiran', value: 'lampiran' }]"
+          />
+        </div>
+        <div data-testid="add-attachment-upload">
+          <NUpload :multiple="newAttRole === 'lampiran'" :default-upload="false" @change="onAttFilesChange">
+            <NButton>Pilih File</NButton>
+          </NUpload>
+        </div>
+      </NSpace>
+      <template #action>
+        <NSpace>
+          <NButton @click="showAddAttDialog = false">Batal</NButton>
+          <NButton type="primary" :loading="submittingAtt" @click="submitAddAttachment" data-testid="submit-add-attachment">
+            Upload
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
   </NLayout>
 </template>

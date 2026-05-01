@@ -145,7 +145,7 @@ func (s *Store) ListSurat(ctx context.Context, f ListSuratFilter) ([]SuratListIt
 
 // concept:keyset-pagination:end
 
-// SuratDetail = surat metadata + lampiran + references (predecessors + successors).
+// SuratDetail = surat metadata + lampiran + references (predecessors + successors) + tembusan.
 type SuratDetail struct {
 	SuratListItem
 	DeskripsiKlasifikasi *string
@@ -153,6 +153,7 @@ type SuratDetail struct {
 	Attachments          []SuratAttachment
 	Predecessors         []SuratReference
 	Successors           []SuratReference
+	Tembusan             []SuratTembusan
 }
 
 // SuratAttachment = file lampiran (active version saja).
@@ -238,6 +239,12 @@ func (s *Store) GetSuratByID(ctx context.Context, id string) (*SuratDetail, erro
 
 	// Successors — surat lain merujuk surat ini (to_surat_id = ini).
 	d.Successors, err = s.queryReferences(ctx, id, "to")
+	if err != nil {
+		return nil, err
+	}
+
+	// Tembusan — list instansi/external yang ditembus.
+	d.Tembusan, err = s.listTembusan(ctx, id)
 	if err != nil {
 		return nil, err
 	}
