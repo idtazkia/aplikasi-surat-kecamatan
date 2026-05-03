@@ -148,7 +148,26 @@ import { h } from "vue";
     <NLayout>
       <NLayoutHeader bordered style="padding: 12px 24px">
         <NSpace justify="space-between" align="center">
-          <NText strong>Daftar Surat</NText>
+          <NSpace align="center">
+            <NText strong>Daftar Surat</NText>
+            <NButton
+              size="small"
+              tertiary
+              @click="router.push({ name: 'inbox' })"
+              data-testid="nav-inbox"
+            >
+              Inbox
+            </NButton>
+            <NButton
+              v-if="auth.hasRole('camat') || auth.hasRole('admin')"
+              size="small"
+              tertiary
+              @click="router.push({ name: 'dashboard' })"
+              data-testid="nav-dashboard"
+            >
+              Dashboard
+            </NButton>
+          </NSpace>
           <NSpace align="center">
             <NButton type="primary" size="small" @click="router.push({ name: 'surat-baru' })">
               + Surat Baru

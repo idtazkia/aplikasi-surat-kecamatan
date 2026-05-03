@@ -285,6 +285,19 @@ export const disposisiApi = {
   },
 };
 
+export interface DashboardCamatStats {
+  surat_masuk_hari_ini: number;
+  disposisi_belum_assign: number;
+  disposisi_overdue: number;
+  disposisi_assigned_to_me: number;
+}
+
+export const dashboardApi = {
+  camat(): Promise<DashboardCamatStats> {
+    return apiClient.get<DashboardCamatStats>("/api/dashboard/camat");
+  },
+};
+
 export const komentarApi = {
   list(suratID: string): Promise<{ items: Komentar[] }> {
     return apiClient.get<{ items: Komentar[] }>(`/api/surat/${suratID}/komentar`);
