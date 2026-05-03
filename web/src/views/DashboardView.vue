@@ -8,6 +8,7 @@ import {
 import { useAuthStore } from "@/stores/auth";
 import { useThemeStore } from "@/stores/theme";
 import { dashboardApi, type DashboardCamatStats } from "@/api/surat";
+import NotificationBell from "@/components/NotificationBell.vue";
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -46,6 +47,7 @@ onMounted(fetch);
           <NText strong>Dashboard Camat</NText>
         </NSpace>
         <NSpace align="center">
+          <NotificationBell />
           <NText depth="3">{{ auth.userID }} ({{ auth.roles.join(", ") }})</NText>
           <NButton size="small" @click="themeStore.toggle()">
             {{ themeStore.dark ? "☀" : "☾" }}

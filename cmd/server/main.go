@@ -61,8 +61,9 @@ func main() {
 		TembusanStore:   st,
 		DisposisiStore:  st,
 		KomentarStore:   st,
-		DashboardStore:  st,
-		DirektoriStore:  st,
+		DashboardStore:    st,
+		NotificationStore: st,
+		DirektoriStore:    st,
 		AttachmentRoot:  cfg.AttachmentStoragePath,
 	})
 

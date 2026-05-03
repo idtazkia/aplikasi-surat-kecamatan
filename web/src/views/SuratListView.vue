@@ -10,6 +10,7 @@ import type { DataTableColumns } from "naive-ui";
 import { useAuthStore } from "@/stores/auth";
 import { useThemeStore } from "@/stores/theme";
 import { suratApi, type SuratListItem, type ListSuratParams } from "@/api/surat";
+import NotificationBell from "@/components/NotificationBell.vue";
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -172,6 +173,7 @@ import { h } from "vue";
             <NButton type="primary" size="small" @click="router.push({ name: 'surat-baru' })">
               + Surat Baru
             </NButton>
+            <NotificationBell />
             <NText depth="3">{{ auth.userID }} ({{ auth.roles.join(", ") }})</NText>
             <NButton size="small" @click="themeStore.toggle()">
               {{ themeStore.dark ? "☀" : "☾" }}

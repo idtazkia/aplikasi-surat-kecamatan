@@ -12,6 +12,16 @@ import (
 	"github.com/idtazkia/aplikasi-surat-kecamatan/internal/uuid7"
 )
 
+// disposisiBaruPayload = payload notifikasi yang dikirim ke assignee.
+type disposisiBaruPayload struct {
+	DisposisiID  string `json:"disposisi_id"`
+	SuratID      string `json:"surat_id"`
+	SuratNomor   string `json:"surat_nomor"`
+	SuratPerihal string `json:"surat_perihal"`
+	CreatorName  string `json:"creator_name"`
+	Instruksi    string `json:"instruksi"`
+}
+
 // DisposisiStore subset interface untuk handler disposisi.
 type DisposisiStore interface {
 	GetSuratByID(ctx context.Context, id string) (*store.SuratDetail, error)
@@ -20,6 +30,15 @@ type DisposisiStore interface {
 	ListDisposisi(ctx context.Context, f store.ListDisposisiFilter) ([]store.Disposisi, error)
 	GetDisposisiByID(ctx context.Context, id string) (*store.Disposisi, error)
 	ListAssignableUsers(ctx context.Context) ([]store.AssignableUser, error)
+}
+
+// NotificationStore subset interface untuk write trigger.
+type NotificationStore interface {
+	CreateNotification(ctx context.Context, in store.NotificationInput) error
+	ListNotifications(ctx context.Context, f store.ListNotificationsFilter) ([]store.Notification, error)
+	CountUnreadNotifications(ctx context.Context, userID string) (int, error)
+	MarkNotificationRead(ctx context.Context, id, userID string) error
+	MarkAllNotificationsRead(ctx context.Context, userID string) error
 }
 
 type disposisiDTO struct {
@@ -139,6 +158,30 @@ func disposisiCreateHandler(d Deps) http.HandlerFunc {
 			d.Logger.Error("disposisi: insert", "err", err)
 			writeError(w, http.StatusInternalServerError, "internal error")
 			return
+		}
+
+		// Trigger notifikasi: assignee dapat notif disposisi_baru kalau bukan self-assignment.
+		if req.AssignedTo != claims.Sub {
+			payload, err := json.Marshal(disposisiBaruPayload{
+				DisposisiID:  newID.String(),
+				SuratID:      req.SuratID,
+				SuratNomor:   surat.NomorSurat,
+				SuratPerihal: surat.Perihal,
+				CreatorName:  claims.Sub, // sub = userID; full_name di-resolve di frontend kalau perlu
+				Instruksi:    req.Instruksi,
+			})
+			if err == nil {
+				notifID, gerr := uuid7.New()
+				if gerr == nil {
+					if nerr := d.NotificationStore.CreateNotification(r.Context(), store.NotificationInput{
+						ID: notifID.String(), UserID: req.AssignedTo,
+						Type: "disposisi_baru", Payload: payload,
+					}); nerr != nil {
+						// Notifikasi gagal tidak block disposisi creation — log + continue.
+						d.Logger.Error("notif: disposisi_baru insert failed", "err", nerr)
+					}
+				}
+			}
 		}
 
 		writeJSON(w, http.StatusCreated, map[string]string{"id": newID.String()})

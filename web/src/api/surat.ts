@@ -292,6 +292,34 @@ export interface DashboardCamatStats {
   disposisi_assigned_to_me: number;
 }
 
+export interface NotificationItem {
+  id: string;
+  type: "disposisi_baru" | "komentar_baru";
+  payload: Record<string, unknown>;
+  read_at?: string;
+  created_at: string;
+}
+
+export interface NotificationListResponse {
+  items: NotificationItem[];
+  unread: number;
+}
+
+export const notificationApi = {
+  list(unreadOnly = false): Promise<NotificationListResponse> {
+    const path = unreadOnly ? "/api/notifications?unread=true" : "/api/notifications";
+    return apiClient.get<NotificationListResponse>(path);
+  },
+
+  markRead(id: string): Promise<{ status: string }> {
+    return apiClient.patch<{ status: string }>(`/api/notifications/${id}/read`, {});
+  },
+
+  markAllRead(): Promise<{ status: string }> {
+    return apiClient.post<{ status: string }>("/api/notifications/read-all", {});
+  },
+};
+
 export const dashboardApi = {
   camat(): Promise<DashboardCamatStats> {
     return apiClient.get<DashboardCamatStats>("/api/dashboard/camat");

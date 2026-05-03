@@ -30,8 +30,9 @@ type Deps struct {
 	TembusanStore   TembusanStore
 	DisposisiStore  DisposisiStore
 	KomentarStore   KomentarStore
-	DashboardStore  DashboardStore
-	DirektoriStore  DirektoriStore
+	DashboardStore     DashboardStore
+	NotificationStore  NotificationStore
+	DirektoriStore     DirektoriStore
 	AttachmentRoot  string
 }
 
@@ -65,6 +66,9 @@ func New(d Deps) http.Handler {
 	mux.Handle("POST /api/surat/{id}/komentar", d.Auth.Middleware(http.HandlerFunc(komentarAppendHandler(d))))
 	mux.Handle("GET /api/surat/{id}/komentar", d.Auth.Middleware(http.HandlerFunc(komentarListHandler(d))))
 	mux.Handle("GET /api/dashboard/camat", d.Auth.Middleware(http.HandlerFunc(dashboardCamatHandler(d))))
+	mux.Handle("GET /api/notifications", d.Auth.Middleware(http.HandlerFunc(notificationListHandler(d))))
+	mux.Handle("PATCH /api/notifications/{id}/read", d.Auth.Middleware(http.HandlerFunc(notificationMarkReadHandler(d))))
+	mux.Handle("POST /api/notifications/read-all", d.Auth.Middleware(http.HandlerFunc(notificationMarkAllReadHandler(d))))
 	mux.Handle("GET /api/instansi", d.Auth.Middleware(http.HandlerFunc(instansiSearchHandler(d))))
 	mux.Handle("POST /api/instansi", d.Auth.Middleware(http.HandlerFunc(instansiCreateHandler(d))))
 	mux.Handle("GET /api/klasifikasi", d.Auth.Middleware(http.HandlerFunc(klasifikasiListHandler(d))))
