@@ -82,6 +82,72 @@ test("FULL UI: camat buat disposisi via UI → muncul di list dengan status pend
   });
 });
 
+test("FULL UI: camat buat disposisi WITH deadline picker → display deadline di list", async ({ page, request }) => {
+  await loginAs(page, "camat");
+  const token = await getToken(page);
+  const suratID = await createTestSurat(request, token, "Disposisi deadline UI test");
+
+  await page.goto(`/surat/${suratID}`);
+  await page.getByTestId("add-disposisi-btn").click();
+
+  // Assignee
+  const assigneeSelect = page.locator('[data-testid="disposisi-assignee-select"] .n-base-selection');
+  await assigneeSelect.click();
+  await page.locator('.n-base-select-option').filter({ hasText: /staf1|Staf Kecamatan 1/ }).first().click();
+
+  // Instruksi
+  await page.locator('[data-testid="disposisi-instruksi-input"] textarea').fill("Test deadline picker");
+
+  // Pick deadline lewat NDatePicker datetime — klik input, navigate calendar, pilih hari, confirm
+  const deadlineInput = page.locator('.n-modal .n-date-picker input').first();
+  await deadlineInput.click();
+  await page.waitForSelector(".n-date-panel", { timeout: 3000 });
+
+  // Navigate ke June 2026 dari current header
+  const targetDate = new Date(2026, 5, 30); // 30 Juni 2026
+  const monthHeader = page.locator(".n-date-panel-month__month-year").first();
+  for (let i = 0; i < 60; i++) {
+    const headerText = (await monthHeader.textContent())?.trim() ?? "";
+    const m = headerText.match(/(\d{1,2})[^\d]+(\d{4})/);
+    if (!m) break;
+    const currentMonth = parseInt(m[1], 10) - 1;
+    const currentYear = parseInt(m[2], 10);
+    if (currentMonth === targetDate.getMonth() && currentYear === targetDate.getFullYear()) break;
+    const goNext =
+      new Date(targetDate.getFullYear(), targetDate.getMonth()).getTime() >
+      new Date(currentYear, currentMonth).getTime();
+    await page.locator(goNext ? ".n-date-panel-month__next" : ".n-date-panel-month__prev").first().click();
+    await page.waitForTimeout(80);
+  }
+
+  await page
+    .locator(".n-date-panel-date:not(.n-date-panel-date--excluded)")
+    .filter({ hasText: /^30$/ })
+    .first()
+    .click();
+  await page.waitForTimeout(150);
+
+  // Datetime picker butuh confirm (panel actions di kanan bawah)
+  const confirmBtn = page.locator(".n-date-panel-actions__suffix .n-button").last();
+  if (await confirmBtn.isVisible()) {
+    await confirmBtn.click();
+  }
+  await page.waitForTimeout(200);
+
+  await page.getByTestId("submit-add-disposisi").click();
+  await expect(page.getByText("Disposisi dibuat")).toBeVisible({ timeout: 3000 });
+
+  const card = page.getByTestId("disposisi-card");
+  await expect(card.getByText("Test deadline picker")).toBeVisible();
+  // Deadline label muncul di description
+  await expect(card.getByText(/Deadline:.*30/i)).toBeVisible();
+
+  // Cleanup
+  await request.delete(`/api/surat/${suratID}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+});
+
 test("FULL UI: assignee mulai → selesai → status berubah", async ({ page, request }) => {
   // Camat buat disposisi via API (state prep), kemudian staf update via UI
   await loginAs(page, "camat");
