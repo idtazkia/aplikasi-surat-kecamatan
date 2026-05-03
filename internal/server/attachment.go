@@ -20,6 +20,8 @@ type AttachmentStore interface {
 	GetSuratByID(ctx context.Context, id string) (*store.SuratDetail, error)
 	AddAttachment(ctx context.Context, in store.AttachmentInput) error
 	AttachmentByID(ctx context.Context, id string) (*store.AttachmentInput, error)
+	ReplaceAttachment(ctx context.Context, oldID string, in store.AttachmentInput) error
+	ListAttachmentVersions(ctx context.Context, anyVersionID string) ([]store.AttachmentVersion, error)
 }
 
 const (
@@ -333,6 +335,205 @@ func storeAttachmentInput(id, suratID, role, fileName, filePath string, fileSize
 		FileName: fileName, FilePath: filePath,
 		FileSize: fileSize, MimeType: mimeType,
 		UploadedBy: uploadedBy,
+	}
+}
+
+// suratAttachmentReplaceHandler handle PATCH /api/surat/{id}/attachments/{att_id}/replace.
+// Multipart body dengan single file part (form name = "file"). Atomic replace:
+// new file stored, new row inserted, old row marked is_active=false + replaced_by.
+func suratAttachmentReplaceHandler(d Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := auth.ClaimsFromContext(r.Context())
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "claims missing")
+			return
+		}
+
+		suratID := r.PathValue("id")
+		oldAttID := r.PathValue("att_id")
+		if suratID == "" || oldAttID == "" {
+			writeError(w, http.StatusBadRequest, "id and att_id required")
+			return
+		}
+
+		surat, err := d.AttachmentStore.GetSuratByID(r.Context(), suratID)
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "surat tidak ditemukan")
+			return
+		}
+		if err != nil {
+			d.Logger.Error("replace: surat lookup", "err", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		if surat.AccessLevel == "secret" && !hasReadSecret(claims.Roles) {
+			writeError(w, http.StatusForbidden, "akses surat rahasia ditolak")
+			return
+		}
+
+		// Verify old attachment ada dan masih aktif
+		oldAtt, err := d.AttachmentStore.AttachmentByID(r.Context(), oldAttID)
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "attachment tidak ditemukan / sudah direplace")
+			return
+		}
+		if err != nil {
+			d.Logger.Error("replace: get old", "err", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		if oldAtt.SuratID != suratID {
+			writeError(w, http.StatusNotFound, "attachment bukan milik surat ini")
+			return
+		}
+
+		mr, err := r.MultipartReader()
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "expected multipart/form-data")
+			return
+		}
+
+		// Stream first file part
+		var savedPath, mimeType, fileName string
+		var fileSize int64
+		for {
+			part, err := mr.NextPart()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "malformed multipart body")
+				return
+			}
+			if part.FileName() == "" {
+				_, _ = io.Copy(io.Discard, part)
+				_ = part.Close()
+				continue
+			}
+			fileName = part.FileName()
+			savedPath, fileSize, mimeType, err = streamPartToDisk(part, d.AttachmentRoot)
+			_ = part.Close()
+			if err != nil {
+				if errors.Is(err, errFileTooLarge) {
+					writeError(w, http.StatusRequestEntityTooLarge,
+						fmt.Sprintf("file lebih besar dari %d byte", maxFileSize))
+					return
+				}
+				d.Logger.Error("replace: stream", "err", err)
+				writeError(w, http.StatusInternalServerError, "internal error")
+				return
+			}
+			break // hanya ambil first file
+		}
+
+		if savedPath == "" {
+			writeError(w, http.StatusBadRequest, "file part tidak ditemukan")
+			return
+		}
+
+		if !mimeAllowed(mimeType) {
+			_ = os.Remove(filepath.Join(d.AttachmentRoot, savedPath))
+			writeError(w, http.StatusUnsupportedMediaType,
+				fmt.Sprintf("MIME type %q tidak diizinkan", mimeType))
+			return
+		}
+
+		newAttID, err := uuid7.New()
+		if err != nil {
+			_ = os.Remove(filepath.Join(d.AttachmentRoot, savedPath))
+			d.Logger.Error("uuid: generate", "err", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+
+		input := store.AttachmentInput{
+			ID:         newAttID.String(),
+			SuratID:    suratID,
+			Role:       oldAtt.Role,
+			FileName:   fileName,
+			FilePath:   savedPath,
+			FileSize:   fileSize,
+			MimeType:   mimeType,
+			UploadedBy: claims.Sub,
+		}
+		if err := d.AttachmentStore.ReplaceAttachment(r.Context(), oldAttID, input); err != nil {
+			_ = os.Remove(filepath.Join(d.AttachmentRoot, savedPath))
+			if errors.Is(err, store.ErrAlreadyReplaced) {
+				writeError(w, http.StatusConflict, "attachment sudah pernah direplace — gunakan versi terkini")
+				return
+			}
+			d.Logger.Error("replace: store", "err", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, attachmentDTO{
+			ID: newAttID.String(), Role: oldAtt.Role, FileName: fileName,
+			FileSize: fileSize, MimeType: mimeType,
+		})
+	}
+}
+
+type attachmentVersionDTO struct {
+	ID           string `json:"id"`
+	FileName     string `json:"file_name"`
+	FileSize     int64  `json:"file_size"`
+	MimeType     string `json:"mime_type"`
+	IsActive     bool   `json:"is_active"`
+	ReplacedBy   *string `json:"replaced_by,omitempty"`
+	UploadedBy   string `json:"uploaded_by"`
+	UploaderName string `json:"uploader_name"`
+	UploadedAt   string `json:"uploaded_at"` // RFC3339
+}
+
+func suratAttachmentVersionsHandler(d Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := auth.ClaimsFromContext(r.Context())
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "claims missing")
+			return
+		}
+
+		suratID := r.PathValue("id")
+		attID := r.PathValue("att_id")
+		if suratID == "" || attID == "" {
+			writeError(w, http.StatusBadRequest, "id and att_id required")
+			return
+		}
+
+		surat, err := d.AttachmentStore.GetSuratByID(r.Context(), suratID)
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "surat tidak ditemukan")
+			return
+		}
+		if err != nil {
+			d.Logger.Error("versions: surat", "err", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		if surat.AccessLevel == "secret" && !hasReadSecret(claims.Roles) {
+			writeError(w, http.StatusForbidden, "akses surat rahasia ditolak")
+			return
+		}
+
+		versions, err := d.AttachmentStore.ListAttachmentVersions(r.Context(), attID)
+		if err != nil {
+			d.Logger.Error("versions: list", "err", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+
+		out := make([]attachmentVersionDTO, 0, len(versions))
+		for _, v := range versions {
+			out = append(out, attachmentVersionDTO{
+				ID: v.ID, FileName: v.FileName, FileSize: v.FileSize,
+				MimeType: v.MimeType, IsActive: v.IsActive,
+				ReplacedBy: v.ReplacedBy,
+				UploadedBy: v.UploadedBy, UploaderName: v.UploaderName,
+				UploadedAt: v.UploadedAt.Format("2006-01-02T15:04:05Z07:00"),
+			})
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"versions": out})
 	}
 }
 

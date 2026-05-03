@@ -12,7 +12,7 @@ import {
   suratApi, direktoriApi, disposisiApi, komentarApi,
   type SuratDetail, type SuratReference, type AddReferencePayload, type AddTembusanPayload,
   type Disposisi, type DisposisiStatus, type AssignableUser, type CreateDisposisiPayload,
-  type Komentar,
+  type Komentar, type AttachmentVersion,
 } from "@/api/surat";
 import { useAuthStore } from "@/stores/auth";
 
@@ -517,6 +517,64 @@ function formatKomentarTime(iso: string): string {
   });
 }
 
+// =============================================================================
+// Attachment replace + versions
+// =============================================================================
+const showReplaceDialog = ref(false);
+const replaceTargetAttID = ref<string>("");
+const replaceTargetFileName = ref<string>("");
+const replaceFile = ref<File | null>(null);
+const submittingReplace = ref(false);
+
+const showVersionsDialog = ref(false);
+const versionsList = ref<AttachmentVersion[]>([]);
+const versionsLoading = ref(false);
+
+function openReplaceDialog(attID: string, fileName: string) {
+  replaceTargetAttID.value = attID;
+  replaceTargetFileName.value = fileName;
+  replaceFile.value = null;
+  showReplaceDialog.value = true;
+}
+
+function onReplaceFileChange(opt: { fileList: UploadFileInfo[] }) {
+  const f = opt.fileList[0]?.file;
+  replaceFile.value = f instanceof File ? f : null;
+}
+
+async function submitReplace() {
+  if (!detail.value) return;
+  if (!replaceFile.value) return message.warning("Pilih file pengganti");
+
+  submittingReplace.value = true;
+  try {
+    await suratApi.replaceAttachment(detail.value.id, replaceTargetAttID.value, replaceFile.value);
+    message.success("Versi baru ter-upload");
+    showReplaceDialog.value = false;
+    await fetchDetail();
+  } catch (e) {
+    message.error("Gagal replace lampiran");
+    console.error(e);
+  } finally {
+    submittingReplace.value = false;
+  }
+}
+
+async function openVersionsDialog(attID: string) {
+  if (!detail.value) return;
+  versionsLoading.value = true;
+  showVersionsDialog.value = true;
+  try {
+    const resp = await suratApi.listAttachmentVersions(detail.value.id, attID);
+    versionsList.value = resp.versions;
+  } catch (e) {
+    message.error("Gagal memuat versi");
+    console.error(e);
+  } finally {
+    versionsLoading.value = false;
+  }
+}
+
 function downloadAttachment(attID: string) {
   if (!detail.value) return;
   const url = suratApi.attachmentDownloadURL(detail.value.id, attID);
@@ -721,6 +779,22 @@ onMounted(fetchDetail);
                         Preview
                       </NButton>
                       <NButton size="tiny" @click="downloadAttachment(att.id)">Unduh</NButton>
+                      <NButton
+                        size="tiny"
+                        tertiary
+                        @click="openReplaceDialog(att.id, att.file_name)"
+                        :data-testid="`replace-attachment-btn-${att.id}`"
+                      >
+                        Replace
+                      </NButton>
+                      <NButton
+                        size="tiny"
+                        tertiary
+                        @click="openVersionsDialog(att.id)"
+                        :data-testid="`versions-btn-${att.id}`"
+                      >
+                        Versi
+                      </NButton>
                     </NSpace>
                   </template>
                   <template #description>
@@ -940,6 +1014,60 @@ onMounted(fetchDetail);
           </NButton>
         </NSpace>
       </template>
+    </NModal>
+
+    <!-- Replace Attachment Dialog -->
+    <NModal v-model:show="showReplaceDialog" preset="dialog" title="Replace Lampiran" style="width: 500px">
+      <NSpace vertical size="medium" style="margin-top: 12px">
+        <NText>
+          Replace <code>{{ replaceTargetFileName }}</code> dengan versi baru. Versi lama tetap disimpan dan bisa dilihat di Versi.
+        </NText>
+        <div data-testid="replace-attachment-upload">
+          <NUpload :default-upload="false" :max="1" @change="onReplaceFileChange">
+            <NButton>Pilih File Pengganti</NButton>
+          </NUpload>
+        </div>
+      </NSpace>
+      <template #action>
+        <NSpace>
+          <NButton @click="showReplaceDialog = false">Batal</NButton>
+          <NButton
+            type="primary"
+            :loading="submittingReplace"
+            @click="submitReplace"
+            data-testid="submit-replace-attachment"
+          >
+            Replace
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
+
+    <!-- Versions Modal -->
+    <NModal v-model:show="showVersionsDialog" preset="card" title="Riwayat Versi" style="width: 600px" data-testid="versions-modal">
+      <NSpin :show="versionsLoading">
+        <NList v-if="versionsList.length > 0">
+          <NListItem v-for="(v, idx) in versionsList" :key="v.id" :data-testid="`version-item-${v.id}`">
+            <NThing>
+              <template #header>
+                <NSpace align="center" :size="6">
+                  <NTag size="small" :type="v.is_active ? 'success' : 'default'">
+                    {{ v.is_active ? "Aktif" : `v${idx + 1}` }}
+                  </NTag>
+                  <NText>{{ v.file_name }}</NText>
+                </NSpace>
+              </template>
+              <template #header-extra>
+                <NText depth="3" style="font-size: 12px">{{ formatKomentarTime(v.uploaded_at) }}</NText>
+              </template>
+              <template #description>
+                {{ formatBytes(v.file_size) }} · {{ v.mime_type }} · oleh {{ v.uploader_name }}
+              </template>
+            </NThing>
+          </NListItem>
+        </NList>
+        <NEmpty v-else-if="!versionsLoading" description="Tidak ada versi" />
+      </NSpin>
     </NModal>
 
     <!-- Add Disposisi Dialog -->

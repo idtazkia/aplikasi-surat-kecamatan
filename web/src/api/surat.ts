@@ -34,6 +34,18 @@ export interface SuratAttachment {
   uploaded_at: string;
 }
 
+export interface AttachmentVersion {
+  id: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  is_active: boolean;
+  replaced_by?: string;
+  uploaded_by: string;
+  uploader_name: string;
+  uploaded_at: string;
+}
+
 export interface SuratReference {
   id: string;
   to_surat_id?: string;
@@ -207,6 +219,37 @@ export const suratApi = {
       throw new Error(`Upload gagal (${resp.status}): ${text}`);
     }
     return resp.json();
+  },
+
+  async replaceAttachment(
+    suratID: string,
+    attID: string,
+    file: File,
+  ): Promise<{ id: string; file_name: string; file_size: number; mime_type: string }> {
+    const fd = new FormData();
+    fd.append("file", file, file.name);
+    const authRaw = localStorage.getItem("surat-kec-auth");
+    const headers: Record<string, string> = {};
+    if (authRaw) {
+      try {
+        const auth = JSON.parse(authRaw);
+        if (auth.accessToken) headers["Authorization"] = `Bearer ${auth.accessToken}`;
+      } catch { /* ignore */ }
+    }
+    const resp = await fetch(`/api/surat/${suratID}/attachments/${attID}/replace`, {
+      method: "PATCH",
+      body: fd,
+      headers,
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Replace gagal (${resp.status}): ${text}`);
+    }
+    return resp.json();
+  },
+
+  listAttachmentVersions(suratID: string, attID: string): Promise<{ versions: AttachmentVersion[] }> {
+    return apiClient.get<{ versions: AttachmentVersion[] }>(`/api/surat/${suratID}/attachments/${attID}/versions`);
   },
 
   attachmentDownloadURL(suratID: string, attID: string): string {

@@ -55,6 +55,8 @@ func New(d Deps) http.Handler {
 	mux.Handle("POST /api/surat/{id}/attachments", d.Auth.Middleware(http.HandlerFunc(suratAttachmentsUploadHandler(d))))
 	mux.Handle("GET /api/surat/{id}/attachments/{att_id}", d.Auth.Middleware(http.HandlerFunc(suratAttachmentDownloadHandler(d))))
 	mux.Handle("GET /api/surat/{id}/attachments/{att_id}/preview", d.Auth.Middleware(http.HandlerFunc(suratAttachmentPreviewHandler(d))))
+	mux.Handle("PATCH /api/surat/{id}/attachments/{att_id}/replace", d.Auth.Middleware(http.HandlerFunc(suratAttachmentReplaceHandler(d))))
+	mux.Handle("GET /api/surat/{id}/attachments/{att_id}/versions", d.Auth.Middleware(http.HandlerFunc(suratAttachmentVersionsHandler(d))))
 	mux.Handle("POST /api/surat/{id}/references", d.Auth.Middleware(http.HandlerFunc(referenceAddHandler(d))))
 	mux.Handle("DELETE /api/surat/{id}/references/{ref_id}", d.Auth.Middleware(http.HandlerFunc(referenceDeleteHandler(d))))
 	mux.Handle("POST /api/surat/{id}/tembusan", d.Auth.Middleware(http.HandlerFunc(tembusanAddHandler(d))))
