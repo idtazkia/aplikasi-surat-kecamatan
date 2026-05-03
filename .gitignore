@@ -25,6 +25,13 @@ node_modules/
 .cache/
 *.local
 
+# Playwright artifacts
+/web/test-results/
+/web/playwright-report/
+/web/.playwright/
+test-results/
+playwright-report/
+
 # Concept catalog build output
 /docs/concepts/book/
 /docs/concepts/src/concept-links.json
