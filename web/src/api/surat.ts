@@ -46,6 +46,20 @@ export interface AttachmentVersion {
   uploaded_at: string;
 }
 
+export interface ThreadNode {
+  id: string;
+  nomor_surat: string;
+  perihal: string;
+  jenis: "masuk" | "keluar";
+  tanggal_surat: string;
+  access_level: string;
+  from_surat_id?: string;
+  relationship?: string;
+  external_ref?: string;
+  depth: number;
+  direction: "self" | "predecessor" | "successor";
+}
+
 export interface SuratReference {
   id: string;
   to_surat_id?: string;
@@ -250,6 +264,10 @@ export const suratApi = {
 
   listAttachmentVersions(suratID: string, attID: string): Promise<{ versions: AttachmentVersion[] }> {
     return apiClient.get<{ versions: AttachmentVersion[] }>(`/api/surat/${suratID}/attachments/${attID}/versions`);
+  },
+
+  getThread(id: string): Promise<{ nodes: ThreadNode[] }> {
+    return apiClient.get<{ nodes: ThreadNode[] }>(`/api/surat/${id}/thread`);
   },
 
   attachmentDownloadURL(suratID: string, attID: string): string {

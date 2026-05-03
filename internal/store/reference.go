@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+
 // ReferenceInput parameter untuk add reference link.
 // Salah satu dari ToSuratID atau ExternalRef harus terisi.
 type ReferenceInput struct {
@@ -80,3 +81,115 @@ func (s *Store) DeleteReference(ctx context.Context, refID, suratID string) erro
 
 // ErrToSuratNotFound = referensi target tidak ada di sistem (mis. typo UUID).
 var ErrToSuratNotFound = errors.New("store: target surat tidak ditemukan")
+
+// ThreadNode = surat di dalam thread korespondensi (transitively connected via references).
+type ThreadNode struct {
+	ID            string
+	NomorSurat    string
+	Perihal       string
+	Jenis         string
+	TanggalSurat  string
+	AccessLevel   string
+	// Edge ke parent (kalau ini bukan root):
+	FromSuratID   *string // null kalau root
+	Relationship  *string // null kalau root
+	ExternalRef   *string // null kalau internal node
+	Depth         int     // jarak dari root yang dimulai user; root=0
+	Direction     string  // "predecessor" | "successor" | "self"
+}
+
+// concept:recursive-cte:start
+// GetSuratThread traverse surat_references graph kedua arah (predecessor +
+// successor) dari surat yang diberikan. Pakai recursive CTE dengan cycle
+// detection via array path tracking — kalau visited node muncul kembali,
+// stop expansion (bukan error).
+//
+// Output: list of nodes dengan depth dari starting surat. External refs
+// (to_surat_id NULL) jadi terminal nodes — punya external_ref text saja.
+//
+// Cap depth 50 — defensif terhadap accidental infinite loop walaupun cycle
+// detection sudah ada.
+func (s *Store) GetSuratThread(ctx context.Context, suratID string, includeSecret bool) ([]ThreadNode, error) {
+	secretFilter := "AND s.access_level <> 'secret'"
+	if includeSecret {
+		secretFilter = ""
+	}
+
+	// Recursive CTE: PostgreSQL hanya support 1 anchor + 1 recursive term, jadi
+	// kita gabungkan predecessor + successor walks dalam recursive term tunggal
+	// pakai inner UNION ALL untuk pilih edge berdasarkan arah.
+	q := fmt.Sprintf(`
+		WITH RECURSIVE thread AS (
+			-- Anchor
+			SELECT s.id::text as id, s.nomor_surat, s.perihal, s.jenis,
+			       s.tanggal_surat::text, s.access_level,
+			       NULL::text as from_surat_id,
+			       NULL::text as relationship,
+			       NULL::text as external_ref,
+			       0 as depth,
+			       'self'::text as direction,
+			       ARRAY[s.id] as visited
+			FROM surat s
+			WHERE s.id = $1 AND NOT s.is_deleted
+
+			UNION ALL
+
+			-- Recursive: gabung predecessor + successor traversal dalam satu term.
+			SELECT next.id, next.nomor_surat, next.perihal, next.jenis,
+			       next.tanggal_surat, next.access_level,
+			       t.id, next.rel, next.ext_ref,
+			       t.depth + 1,
+			       next.direction,
+			       t.visited || next.id_uuid
+			FROM thread t
+			JOIN LATERAL (
+				-- Predecessor edge: t di sisi from, traverse ke to
+				SELECT s.id::text as id, s.id as id_uuid, s.nomor_surat, s.perihal, s.jenis,
+				       s.tanggal_surat::text as tanggal_surat,
+				       s.access_level, r.relationship as rel, r.external_ref as ext_ref,
+				       'predecessor'::text as direction
+				FROM surat_references r
+				JOIN surat s ON s.id = r.to_surat_id AND NOT s.is_deleted
+				WHERE r.from_surat_id = t.id::uuid AND r.to_surat_id IS NOT NULL
+
+				UNION ALL
+
+				-- Successor edge: t di sisi to, traverse ke from
+				SELECT s.id::text, s.id, s.nomor_surat, s.perihal, s.jenis,
+				       s.tanggal_surat::text,
+				       s.access_level, r.relationship, NULL::text,
+				       'successor'::text
+				FROM surat_references r
+				JOIN surat s ON s.id = r.from_surat_id AND NOT s.is_deleted
+				WHERE r.to_surat_id = t.id::uuid
+			) next ON TRUE
+			WHERE NOT (next.id_uuid = ANY(t.visited))
+			  AND t.depth < 50
+		)
+		SELECT id, nomor_surat, perihal, jenis, tanggal_surat, access_level,
+		       from_surat_id, relationship, external_ref, depth, direction
+		FROM thread s
+		WHERE TRUE %s
+		ORDER BY depth ASC, direction ASC, id ASC`, secretFilter)
+
+	rows, err := s.pool.Query(ctx, q, suratID)
+	if err != nil {
+		return nil, fmt.Errorf("store: thread query: %w", err)
+	}
+	defer rows.Close()
+
+	var out []ThreadNode
+	for rows.Next() {
+		var n ThreadNode
+		if err := rows.Scan(
+			&n.ID, &n.NomorSurat, &n.Perihal, &n.Jenis, &n.TanggalSurat, &n.AccessLevel,
+			&n.FromSuratID, &n.Relationship, &n.ExternalRef, &n.Depth, &n.Direction,
+		); err != nil {
+			return nil, fmt.Errorf("store: scan thread: %w", err)
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
+// concept:recursive-cte:end

@@ -16,6 +16,7 @@ type ReferenceStore interface {
 	GetSuratByID(ctx context.Context, id string) (*store.SuratDetail, error)
 	AddReference(ctx context.Context, in store.ReferenceInput) error
 	DeleteReference(ctx context.Context, refID, suratID string) error
+	GetSuratThread(ctx context.Context, suratID string, includeSecret bool) ([]store.ThreadNode, error)
 }
 
 var validRelationships = map[string]bool{
@@ -118,6 +119,70 @@ func referenceAddHandler(d Deps) http.HandlerFunc {
 		}
 
 		writeJSON(w, http.StatusCreated, map[string]string{"id": newID.String()})
+	}
+}
+
+type threadNodeDTO struct {
+	ID           string  `json:"id"`
+	NomorSurat   string  `json:"nomor_surat"`
+	Perihal      string  `json:"perihal"`
+	Jenis        string  `json:"jenis"`
+	TanggalSurat string  `json:"tanggal_surat"`
+	AccessLevel  string  `json:"access_level"`
+	FromSuratID  *string `json:"from_surat_id,omitempty"`
+	Relationship *string `json:"relationship,omitempty"`
+	ExternalRef  *string `json:"external_ref,omitempty"`
+	Depth        int     `json:"depth"`
+	Direction    string  `json:"direction"`
+}
+
+func suratThreadHandler(d Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims, ok := auth.ClaimsFromContext(r.Context())
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "claims missing")
+			return
+		}
+
+		suratID := r.PathValue("id")
+		if suratID == "" {
+			writeError(w, http.StatusBadRequest, "id required")
+			return
+		}
+
+		// Verify ACL anchor surat
+		surat, err := d.ReferenceStore.GetSuratByID(r.Context(), suratID)
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "surat tidak ditemukan")
+			return
+		}
+		if err != nil {
+			d.Logger.Error("thread: surat", "err", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		if surat.AccessLevel == "secret" && !hasReadSecret(claims.Roles) {
+			writeError(w, http.StatusForbidden, "akses surat rahasia ditolak")
+			return
+		}
+
+		nodes, err := d.ReferenceStore.GetSuratThread(r.Context(), suratID, hasReadSecret(claims.Roles))
+		if err != nil {
+			d.Logger.Error("thread: query", "err", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+
+		out := make([]threadNodeDTO, 0, len(nodes))
+		for _, n := range nodes {
+			out = append(out, threadNodeDTO{
+				ID: n.ID, NomorSurat: n.NomorSurat, Perihal: n.Perihal,
+				Jenis: n.Jenis, TanggalSurat: n.TanggalSurat, AccessLevel: n.AccessLevel,
+				FromSuratID: n.FromSuratID, Relationship: n.Relationship,
+				ExternalRef: n.ExternalRef, Depth: n.Depth, Direction: n.Direction,
+			})
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"nodes": out})
 	}
 }
 

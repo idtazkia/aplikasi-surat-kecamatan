@@ -12,7 +12,7 @@ import {
   suratApi, direktoriApi, disposisiApi, komentarApi,
   type SuratDetail, type SuratReference, type AddReferencePayload, type AddTembusanPayload,
   type Disposisi, type DisposisiStatus, type AssignableUser, type CreateDisposisiPayload,
-  type Komentar, type AttachmentVersion,
+  type Komentar, type AttachmentVersion, type ThreadNode,
 } from "@/api/surat";
 import { useAuthStore } from "@/stores/auth";
 
@@ -575,6 +575,36 @@ async function openVersionsDialog(attID: string) {
   }
 }
 
+// =============================================================================
+// Thread korespondensi (recursive CTE traversal)
+// =============================================================================
+const showThreadDialog = ref(false);
+const threadNodes = ref<ThreadNode[]>([]);
+const threadLoading = ref(false);
+
+async function openThreadDialog() {
+  if (!detail.value) return;
+  threadLoading.value = true;
+  showThreadDialog.value = true;
+  try {
+    const resp = await suratApi.getThread(detail.value.id);
+    threadNodes.value = resp.nodes;
+  } catch (e) {
+    message.error("Gagal memuat thread");
+    console.error(e);
+  } finally {
+    threadLoading.value = false;
+  }
+}
+
+const threadRelationshipLabel: Record<string, string> = {
+  balasan: "balasan",
+  lanjutan: "lanjutan",
+  disposisi_hasil: "hasil disposisi",
+  revisi: "revisi",
+  terkait: "terkait",
+};
+
 function downloadAttachment(attID: string) {
   if (!detail.value) return;
   const url = suratApi.attachmentDownloadURL(detail.value.id, attID);
@@ -853,9 +883,14 @@ onMounted(fetchDetail);
           <!-- Riwayat korespondensi -->
           <NCard title="Riwayat Korespondensi">
             <template #header-extra>
-              <NButton size="small" type="primary" tertiary @click="openAddRefDialog" data-testid="add-reference-btn">
-                + Tambah Referensi
-              </NButton>
+              <NSpace :size="6">
+                <NButton size="small" tertiary @click="openThreadDialog" data-testid="thread-view-btn">
+                  Lihat Thread Lengkap
+                </NButton>
+                <NButton size="small" type="primary" tertiary @click="openAddRefDialog" data-testid="add-reference-btn">
+                  + Tambah Referensi
+                </NButton>
+              </NSpace>
             </template>
             <div v-if="detail.predecessors.length === 0 && detail.successors.length === 0">
               <NEmpty description="Tidak ada surat yang berelasi" size="small" />
@@ -1014,6 +1049,48 @@ onMounted(fetchDetail);
           </NButton>
         </NSpace>
       </template>
+    </NModal>
+
+    <!-- Thread Korespondensi Modal -->
+    <NModal v-model:show="showThreadDialog" preset="card" title="Thread Korespondensi" style="width: 700px" data-testid="thread-modal">
+      <NSpin :show="threadLoading">
+        <NEmpty v-if="!threadLoading && threadNodes.length === 0" description="Thread kosong" />
+        <NList v-else>
+          <NListItem
+            v-for="n in threadNodes"
+            :key="`${n.id}-${n.from_surat_id ?? 'root'}-${n.direction}`"
+            :data-testid="`thread-node-${n.id}-${n.direction}`"
+            :style="{ paddingLeft: `${n.depth * 24}px` }"
+          >
+            <NThing>
+              <template #header>
+                <NSpace align="center" :size="6">
+                  <NTag size="tiny" :type="n.direction === 'self' ? 'info' : n.direction === 'predecessor' ? 'warning' : 'success'">
+                    {{ n.direction === 'self' ? 'AWAL' : n.direction === 'predecessor' ? '↑ pred' : '↓ succ' }}
+                  </NTag>
+                  <NText v-if="n.relationship" depth="3" style="font-size: 12px">
+                    ({{ threadRelationshipLabel[n.relationship] ?? n.relationship }})
+                  </NText>
+                  <RouterLink v-if="n.id" :to="{ name: 'surat-detail', params: { id: n.id } }">
+                    <code>{{ n.nomor_surat }}</code> — {{ n.perihal }}
+                  </RouterLink>
+                </NSpace>
+              </template>
+              <template #header-extra>
+                <NTag size="tiny" :type="n.jenis === 'masuk' ? 'success' : 'info'">
+                  {{ n.jenis }}
+                </NTag>
+              </template>
+              <template #description>
+                <NText depth="3" style="font-size: 12px">
+                  {{ n.tanggal_surat }}
+                  <span v-if="n.access_level !== 'public'"> · {{ n.access_level }}</span>
+                </NText>
+              </template>
+            </NThing>
+          </NListItem>
+        </NList>
+      </NSpin>
     </NModal>
 
     <!-- Replace Attachment Dialog -->
