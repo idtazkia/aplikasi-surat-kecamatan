@@ -28,6 +28,7 @@ type Deps struct {
 	AttachmentStore AttachmentStore
 	ReferenceStore  ReferenceStore
 	TembusanStore   TembusanStore
+	DisposisiStore  DisposisiStore
 	DirektoriStore  DirektoriStore
 	AttachmentRoot  string
 }
@@ -55,6 +56,10 @@ func New(d Deps) http.Handler {
 	mux.Handle("DELETE /api/surat/{id}/references/{ref_id}", d.Auth.Middleware(http.HandlerFunc(referenceDeleteHandler(d))))
 	mux.Handle("POST /api/surat/{id}/tembusan", d.Auth.Middleware(http.HandlerFunc(tembusanAddHandler(d))))
 	mux.Handle("DELETE /api/surat/{id}/tembusan/{tembusan_id}", d.Auth.Middleware(http.HandlerFunc(tembusanDeleteHandler(d))))
+	mux.Handle("POST /api/disposisi", d.Auth.Middleware(http.HandlerFunc(disposisiCreateHandler(d))))
+	mux.Handle("PATCH /api/disposisi/{id}", d.Auth.Middleware(http.HandlerFunc(disposisiUpdateHandler(d))))
+	mux.Handle("GET /api/disposisi", d.Auth.Middleware(http.HandlerFunc(disposisiListHandler(d))))
+	mux.Handle("GET /api/users/assignable", d.Auth.Middleware(http.HandlerFunc(assignableUsersHandler(d))))
 	mux.Handle("GET /api/instansi", d.Auth.Middleware(http.HandlerFunc(instansiSearchHandler(d))))
 	mux.Handle("POST /api/instansi", d.Auth.Middleware(http.HandlerFunc(instansiCreateHandler(d))))
 	mux.Handle("GET /api/klasifikasi", d.Auth.Middleware(http.HandlerFunc(klasifikasiListHandler(d))))

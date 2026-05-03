@@ -59,6 +59,7 @@ func main() {
 		AttachmentStore: st,
 		ReferenceStore:  st,
 		TembusanStore:   st,
+		DisposisiStore:  st,
 		DirektoriStore:  st,
 		AttachmentRoot:  cfg.AttachmentStoragePath,
 	})

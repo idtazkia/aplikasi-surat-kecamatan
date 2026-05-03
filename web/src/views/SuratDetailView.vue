@@ -4,15 +4,21 @@ import { useRoute, useRouter } from "vue-router";
 import {
   NLayout, NLayoutHeader, NLayoutContent, NSpace, NButton, NText, NCard, NTag,
   NDescriptions, NDescriptionsItem, NList, NListItem, NThing, NSpin, NEmpty, NIcon,
-  NPopconfirm, NModal, NSelect, NInput, NUpload,
+  NPopconfirm, NModal, NSelect, NInput, NUpload, NDatePicker,
   type UploadFileInfo,
   useMessage,
 } from "naive-ui";
-import { suratApi, direktoriApi, type SuratDetail, type SuratReference, type AddReferencePayload, type AddTembusanPayload } from "@/api/surat";
+import {
+  suratApi, direktoriApi, disposisiApi,
+  type SuratDetail, type SuratReference, type AddReferencePayload, type AddTembusanPayload,
+  type Disposisi, type DisposisiStatus, type AssignableUser, type CreateDisposisiPayload,
+} from "@/api/surat";
+import { useAuthStore } from "@/stores/auth";
 
 const route = useRoute();
 const router = useRouter();
 const message = useMessage();
+const authStore = useAuthStore();
 
 const detail = ref<SuratDetail | null>(null);
 const loading = ref(true);
@@ -51,6 +57,7 @@ async function fetchDetail() {
   loading.value = true;
   try {
     detail.value = await suratApi.get(route.params.id as string);
+    await fetchDisposisi();
   } catch (e: unknown) {
     if (e instanceof Error && (e as { status?: number }).status === 404) {
       message.error("Surat tidak ditemukan");
@@ -343,6 +350,129 @@ async function deleteTembusan(tembusanID: string) {
   }
 }
 
+// =============================================================================
+// Disposisi
+// =============================================================================
+const disposisiList = ref<Disposisi[]>([]);
+const assignableUsers = ref<AssignableUser[]>([]);
+
+const showAddDisposisiDialog = ref(false);
+const newDispAssignee = ref<string>("");
+const newDispInstruksi = ref("");
+const newDispNomor = ref("");
+const newDispDeadline = ref<number | null>(null); // unix ms — NDatePicker model
+const submittingDisp = ref(false);
+
+const disposisiStatusOptions: { label: string; value: DisposisiStatus }[] = [
+  { label: "Pending", value: "pending" },
+  { label: "Sedang dikerjakan", value: "in_progress" },
+  { label: "Selesai", value: "done" },
+  { label: "Dibatalkan", value: "cancelled" },
+];
+
+const disposisiStatusTagType: Record<DisposisiStatus, "default" | "warning" | "info" | "success" | "error"> = {
+  pending: "warning",
+  in_progress: "info",
+  done: "success",
+  cancelled: "error",
+};
+
+function disposisiStatusLabel(s: DisposisiStatus): string {
+  const m = disposisiStatusOptions.find((o) => o.value === s);
+  return m ? m.label : s;
+}
+
+async function fetchDisposisi() {
+  if (!detail.value) return;
+  try {
+    const resp = await disposisiApi.list({ surat_id: detail.value.id });
+    disposisiList.value = resp.items;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function fetchAssignable() {
+  if (assignableUsers.value.length > 0) return; // cache: hanya 1x per session
+  try {
+    const resp = await disposisiApi.listAssignableUsers();
+    assignableUsers.value = resp.items;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function openAddDisposisiDialog() {
+  newDispAssignee.value = "";
+  newDispInstruksi.value = "";
+  newDispNomor.value = "";
+  newDispDeadline.value = null;
+  await fetchAssignable();
+  showAddDisposisiDialog.value = true;
+}
+
+async function submitAddDisposisi() {
+  if (!detail.value) return;
+  if (!newDispAssignee.value) return message.warning("Pilih assignee");
+  if (!newDispInstruksi.value.trim()) return message.warning("Instruksi wajib diisi");
+
+  submittingDisp.value = true;
+  try {
+    const payload: CreateDisposisiPayload = {
+      surat_id: detail.value.id,
+      assigned_to: newDispAssignee.value,
+      instruksi: newDispInstruksi.value.trim(),
+    };
+    if (newDispNomor.value.trim()) payload.nomor_disposisi = newDispNomor.value.trim();
+    if (newDispDeadline.value) payload.deadline = new Date(newDispDeadline.value).toISOString();
+
+    await disposisiApi.create(payload);
+    message.success("Disposisi dibuat");
+    showAddDisposisiDialog.value = false;
+    await fetchDisposisi();
+  } catch (e) {
+    message.error("Gagal membuat disposisi");
+    console.error(e);
+  } finally {
+    submittingDisp.value = false;
+  }
+}
+
+async function updateDisposisiStatus(d: Disposisi, status: DisposisiStatus) {
+  try {
+    await disposisiApi.update(d.id, { status });
+    message.success(`Status diubah ke ${disposisiStatusLabel(status)}`);
+    await fetchDisposisi();
+  } catch (e) {
+    message.error("Gagal update status");
+    console.error(e);
+  }
+}
+
+function canUpdateDisposisi(d: Disposisi): boolean {
+  if (d.assigned_to === authStore.userID) return true;
+  if (d.created_by === authStore.userID) return true;
+  if (authStore.hasRole("camat") || authStore.hasRole("admin")) return true;
+  return false;
+}
+
+function canCreateDisposisi(): boolean {
+  return authStore.hasRole("staf") || authStore.hasRole("camat") || authStore.hasRole("admin");
+}
+
+function formatDeadline(iso: string): string {
+  return new Date(iso).toLocaleString("id-ID", {
+    year: "numeric", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function isOverdue(d: Disposisi): boolean {
+  if (!d.deadline) return false;
+  if (d.status === "done" || d.status === "cancelled") return false;
+  return new Date(d.deadline).getTime() < Date.now();
+}
+
 function downloadAttachment(attID: string) {
   if (!detail.value) return;
   const url = suratApi.attachmentDownloadURL(detail.value.id, attID);
@@ -443,6 +573,77 @@ onMounted(fetchDetail);
                 </NTag>
               </NDescriptionsItem>
             </NDescriptions>
+          </NCard>
+
+          <!-- Disposisi -->
+          <NCard title="Disposisi" data-testid="disposisi-card">
+            <template #header-extra>
+              <NButton
+                v-if="canCreateDisposisi()"
+                size="small"
+                type="primary"
+                tertiary
+                @click="openAddDisposisiDialog"
+                data-testid="add-disposisi-btn"
+              >
+                + Buat Disposisi
+              </NButton>
+            </template>
+            <NEmpty v-if="disposisiList.length === 0" description="Belum ada disposisi" size="small" />
+            <NList v-else>
+              <NListItem v-for="d in disposisiList" :key="d.id" :data-testid="`disposisi-item-${d.id}`">
+                <NThing>
+                  <template #header>
+                    <NSpace align="center" :size="8">
+                      <NTag size="small" :type="disposisiStatusTagType[d.status]">
+                        {{ disposisiStatusLabel(d.status) }}
+                      </NTag>
+                      <NTag v-if="isOverdue(d)" size="tiny" type="error">Overdue</NTag>
+                      <NText strong>→ {{ d.assignee_name }}</NText>
+                    </NSpace>
+                  </template>
+                  <template #header-extra>
+                    <NSpace v-if="canUpdateDisposisi(d)" :size="4">
+                      <NButton
+                        v-if="d.status === 'pending'"
+                        size="tiny"
+                        @click="updateDisposisiStatus(d, 'in_progress')"
+                        :data-testid="`disposisi-start-${d.id}`"
+                      >
+                        Mulai
+                      </NButton>
+                      <NButton
+                        v-if="d.status === 'in_progress'"
+                        size="tiny"
+                        type="success"
+                        @click="updateDisposisiStatus(d, 'done')"
+                        :data-testid="`disposisi-done-${d.id}`"
+                      >
+                        Selesai
+                      </NButton>
+                      <NButton
+                        v-if="d.status !== 'done' && d.status !== 'cancelled'"
+                        size="tiny"
+                        type="error"
+                        tertiary
+                        @click="updateDisposisiStatus(d, 'cancelled')"
+                        :data-testid="`disposisi-cancel-${d.id}`"
+                      >
+                        Batal
+                      </NButton>
+                    </NSpace>
+                  </template>
+                  <template #description>
+                    <div>{{ d.instruksi }}</div>
+                    <div style="margin-top: 4px; font-size: 12px; opacity: 0.7">
+                      Oleh {{ d.creator_name }}
+                      <span v-if="d.deadline"> · Deadline: {{ formatDeadline(d.deadline) }}</span>
+                      <span v-if="d.completed_at"> · Selesai: {{ formatDeadline(d.completed_at) }}</span>
+                    </div>
+                  </template>
+                </NThing>
+              </NListItem>
+            </NList>
           </NCard>
 
           <!-- Lampiran -->
@@ -652,6 +853,58 @@ onMounted(fetchDetail);
           <NButton @click="showAddRefDialog = false">Batal</NButton>
           <NButton type="primary" :loading="submittingRef" @click="submitAddReference" data-testid="submit-add-reference">
             Tambah
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
+
+    <!-- Add Disposisi Dialog -->
+    <NModal v-model:show="showAddDisposisiDialog" preset="dialog" title="Buat Disposisi" style="width: 500px">
+      <NSpace vertical size="medium" style="margin-top: 12px">
+        <div>
+          <NText strong>Assignee</NText>
+          <NSelect
+            v-model:value="newDispAssignee"
+            :options="assignableUsers.map((u) => ({ label: `${u.full_name} (${u.username})`, value: u.id }))"
+            placeholder="Pilih user..."
+            filterable
+            data-testid="disposisi-assignee-select"
+          />
+        </div>
+        <div>
+          <NText strong>Instruksi</NText>
+          <NInput
+            v-model:value="newDispInstruksi"
+            type="textarea"
+            placeholder="Tindakan yang diharapkan dari assignee"
+            :autosize="{ minRows: 3, maxRows: 6 }"
+            data-testid="disposisi-instruksi-input"
+          />
+        </div>
+        <div>
+          <NText strong>Nomor Disposisi (opsional)</NText>
+          <NInput v-model:value="newDispNomor" placeholder="Mis. DISP/045/IV/2026" />
+        </div>
+        <div>
+          <NText strong>Deadline (opsional)</NText>
+          <NDatePicker
+            v-model:value="newDispDeadline"
+            type="datetime"
+            clearable
+            style="width: 100%"
+          />
+        </div>
+      </NSpace>
+      <template #action>
+        <NSpace>
+          <NButton @click="showAddDisposisiDialog = false">Batal</NButton>
+          <NButton
+            type="primary"
+            :loading="submittingDisp"
+            @click="submitAddDisposisi"
+            data-testid="submit-add-disposisi"
+          >
+            Buat
           </NButton>
         </NSpace>
       </template>

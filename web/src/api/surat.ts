@@ -102,6 +102,46 @@ export interface AddTembusanPayload {
   urutan?: number;
 }
 
+export type DisposisiStatus = "pending" | "in_progress" | "done" | "cancelled";
+
+export interface Disposisi {
+  id: string;
+  surat_id: string;
+  surat_nomor: string;
+  surat_perihal: string;
+  assigned_to: string;
+  assignee_name: string;
+  nomor_disposisi?: string;
+  instruksi: string;
+  deadline?: string;
+  status: DisposisiStatus;
+  completed_at?: string;
+  created_by: string;
+  creator_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateDisposisiPayload {
+  surat_id: string;
+  assigned_to: string;
+  nomor_disposisi?: string;
+  instruksi: string;
+  deadline?: string;
+}
+
+export interface UpdateDisposisiPayload {
+  status: DisposisiStatus;
+  instruksi?: string;
+}
+
+export interface AssignableUser {
+  id: string;
+  username: string;
+  full_name: string;
+  roles: string[];
+}
+
 export const suratApi = {
   list(params: ListSuratParams = {}): Promise<SuratListResponse> {
     const qs = new URLSearchParams();
@@ -202,6 +242,37 @@ export const suratApi = {
 
   removeTembusan(suratID: string, tembusanID: string): Promise<{ status: string }> {
     return apiClient.delete<{ status: string }>(`/api/surat/${suratID}/tembusan/${tembusanID}`);
+  },
+};
+
+export const disposisiApi = {
+  create(p: CreateDisposisiPayload): Promise<{ id: string }> {
+    return apiClient.post<{ id: string }>("/api/disposisi", p);
+  },
+
+  update(id: string, p: UpdateDisposisiPayload): Promise<{ status: string }> {
+    return apiClient.patch<{ status: string }>(`/api/disposisi/${id}`, p);
+  },
+
+  list(params: {
+    surat_id?: string;
+    assigned_to?: string;
+    created_by?: string;
+    status?: DisposisiStatus;
+    mine?: boolean;
+  } = {}): Promise<{ items: Disposisi[] }> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== "") {
+        qs.set(k, String(v));
+      }
+    }
+    const path = qs.toString() ? `/api/disposisi?${qs}` : "/api/disposisi";
+    return apiClient.get<{ items: Disposisi[] }>(path);
+  },
+
+  listAssignableUsers(): Promise<{ items: AssignableUser[] }> {
+    return apiClient.get<{ items: AssignableUser[] }>("/api/users/assignable");
   },
 };
 
