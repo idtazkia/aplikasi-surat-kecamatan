@@ -9,9 +9,10 @@ import {
   useMessage,
 } from "naive-ui";
 import {
-  suratApi, direktoriApi, disposisiApi,
+  suratApi, direktoriApi, disposisiApi, komentarApi,
   type SuratDetail, type SuratReference, type AddReferencePayload, type AddTembusanPayload,
   type Disposisi, type DisposisiStatus, type AssignableUser, type CreateDisposisiPayload,
+  type Komentar,
 } from "@/api/surat";
 import { useAuthStore } from "@/stores/auth";
 
@@ -57,7 +58,7 @@ async function fetchDetail() {
   loading.value = true;
   try {
     detail.value = await suratApi.get(route.params.id as string);
-    await fetchDisposisi();
+    await Promise.all([fetchDisposisi(), fetchKomentar()]);
   } catch (e: unknown) {
     if (e instanceof Error && (e as { status?: number }).status === 404) {
       message.error("Surat tidak ditemukan");
@@ -473,6 +474,49 @@ function isOverdue(d: Disposisi): boolean {
   return new Date(d.deadline).getTime() < Date.now();
 }
 
+// =============================================================================
+// Komentar (append-only)
+// =============================================================================
+const komentarList = ref<Komentar[]>([]);
+const newKomentarBody = ref("");
+const submittingKomentar = ref(false);
+
+async function fetchKomentar() {
+  if (!detail.value) return;
+  try {
+    const resp = await komentarApi.list(detail.value.id);
+    komentarList.value = resp.items;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function submitKomentar() {
+  if (!detail.value) return;
+  const body = newKomentarBody.value.trim();
+  if (!body) return message.warning("Komentar tidak boleh kosong");
+
+  submittingKomentar.value = true;
+  try {
+    await komentarApi.append(detail.value.id, body);
+    message.success("Komentar ditambahkan");
+    newKomentarBody.value = "";
+    await fetchKomentar();
+  } catch (e) {
+    message.error("Gagal menambah komentar");
+    console.error(e);
+  } finally {
+    submittingKomentar.value = false;
+  }
+}
+
+function formatKomentarTime(iso: string): string {
+  return new Date(iso).toLocaleString("id-ID", {
+    year: "numeric", month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
 function downloadAttachment(attID: string) {
   if (!detail.value) return;
   const url = suratApi.attachmentDownloadURL(detail.value.id, attID);
@@ -801,6 +845,46 @@ onMounted(fetchDetail);
                   </NListItem>
                 </NList>
               </div>
+            </NSpace>
+          </NCard>
+
+          <!-- Komentar (append-only) -->
+          <NCard title="Komentar" data-testid="komentar-card">
+            <NEmpty v-if="komentarList.length === 0" description="Belum ada komentar" size="small" />
+            <NList v-else>
+              <NListItem v-for="k in komentarList" :key="k.id" :data-testid="`komentar-item-${k.id}`">
+                <NThing>
+                  <template #header>
+                    <NText strong>{{ k.user_name }}</NText>
+                  </template>
+                  <template #header-extra>
+                    <NText depth="3" style="font-size: 12px">{{ formatKomentarTime(k.created_at) }}</NText>
+                  </template>
+                  <template #description>
+                    <div style="white-space: pre-wrap">{{ k.body }}</div>
+                  </template>
+                </NThing>
+              </NListItem>
+            </NList>
+            <NSpace vertical :size="8" style="margin-top: 16px">
+              <NInput
+                v-model:value="newKomentarBody"
+                type="textarea"
+                placeholder="Tulis komentar... (append-only — tidak bisa diedit setelah submit)"
+                :autosize="{ minRows: 2, maxRows: 5 }"
+                data-testid="komentar-input"
+              />
+              <NSpace justify="end">
+                <NButton
+                  type="primary"
+                  :loading="submittingKomentar"
+                  :disabled="!newKomentarBody.trim()"
+                  @click="submitKomentar"
+                  data-testid="submit-komentar"
+                >
+                  Kirim Komentar
+                </NButton>
+              </NSpace>
             </NSpace>
           </NCard>
         </NSpace>

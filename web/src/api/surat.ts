@@ -142,6 +142,15 @@ export interface AssignableUser {
   roles: string[];
 }
 
+export interface Komentar {
+  id: string;
+  surat_id: string;
+  user_id: string;
+  user_name: string;
+  body: string;
+  created_at: string;
+}
+
 export const suratApi = {
   list(params: ListSuratParams = {}): Promise<SuratListResponse> {
     const qs = new URLSearchParams();
@@ -273,6 +282,16 @@ export const disposisiApi = {
 
   listAssignableUsers(): Promise<{ items: AssignableUser[] }> {
     return apiClient.get<{ items: AssignableUser[] }>("/api/users/assignable");
+  },
+};
+
+export const komentarApi = {
+  list(suratID: string): Promise<{ items: Komentar[] }> {
+    return apiClient.get<{ items: Komentar[] }>(`/api/surat/${suratID}/komentar`);
+  },
+
+  append(suratID: string, body: string): Promise<{ id: string }> {
+    return apiClient.post<{ id: string }>(`/api/surat/${suratID}/komentar`, { body });
   },
 };
 

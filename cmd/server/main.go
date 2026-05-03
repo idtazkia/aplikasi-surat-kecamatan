@@ -60,6 +60,7 @@ func main() {
 		ReferenceStore:  st,
 		TembusanStore:   st,
 		DisposisiStore:  st,
+		KomentarStore:   st,
 		DirektoriStore:  st,
 		AttachmentRoot:  cfg.AttachmentStoragePath,
 	})
