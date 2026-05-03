@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -9,6 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	pdfapi "github.com/pdfcpu/pdfcpu/pkg/api"
+	pdftypes "github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 
 	"github.com/idtazkia/aplikasi-surat-kecamatan/internal/auth"
 	"github.com/idtazkia/aplikasi-surat-kecamatan/internal/store"
@@ -22,6 +27,7 @@ type AttachmentStore interface {
 	AttachmentByID(ctx context.Context, id string) (*store.AttachmentInput, error)
 	ReplaceAttachment(ctx context.Context, oldID string, in store.AttachmentInput) error
 	ListAttachmentVersions(ctx context.Context, anyVersionID string) ([]store.AttachmentVersion, error)
+	GetUserName(ctx context.Context, userID string) (fullName, username string, err error)
 }
 
 const (
@@ -310,15 +316,73 @@ func suratAttachmentServeHandler(d Deps, disposition string) http.HandlerFunc {
 		}
 		defer f.Close()
 
+		// Watermark logic: hanya untuk PDF dengan access_level >= restricted.
+		// Public surat tidak butuh watermark — anyway tidak sensitif.
+		needsWatermark := att.MimeType == "application/pdf" &&
+			(surat.AccessLevel == "restricted" || surat.AccessLevel == "secret")
+
 		w.Header().Set("Content-Type", att.MimeType)
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", att.FileSize))
 		w.Header().Set("Content-Disposition",
 			fmt.Sprintf(`%s; filename="%s"`, disposition, sanitizeFilename(att.FileName)))
-		w.WriteHeader(http.StatusOK)
 
+		if needsWatermark {
+			fullName, _, ferr := d.AttachmentStore.GetUserName(r.Context(), claims.Sub)
+			if ferr != nil {
+				d.Logger.Error("watermark: lookup user name", "err", ferr)
+				// Fall through tanpa watermark akan kebobolan — better fail.
+				writeError(w, http.StatusInternalServerError, "user lookup error")
+				return
+			}
+			text := fmt.Sprintf("Diunduh oleh %s — %s",
+				fullName, time.Now().Format("2006-01-02 15:04 MST"))
+			watermarked, werr := applyTextWatermark(f, text)
+			if werr != nil {
+				d.Logger.Error("watermark: apply", "err", werr, "att_id", att.ID)
+				writeError(w, http.StatusInternalServerError, "watermark error")
+				return
+			}
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", len(watermarked)))
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(watermarked)
+			return
+		}
+
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", att.FileSize))
+		w.WriteHeader(http.StatusOK)
 		_, _ = io.Copy(w, f)
 	}
 }
+
+// concept:pdf-watermark:start
+// applyTextWatermark = stream PDF dari ReadSeeker, apply text watermark
+// diagonal di setiap halaman, return resulting bytes.
+//
+// pdfcpu API: TextWatermark builds *Watermark dari text + descriptor string.
+// Descriptor "scale:1 abs, rot:45, opacity:0.3, col: 0.6 0.6 0.6" — abu-abu
+// transparan diagonal supaya tidak menutup konten asli.
+//
+// Trade-off vs alternative library (unipdf): pdfcpu pure Go, MIT, lebih ringan;
+// unipdf butuh license komersil untuk produksi.
+func applyTextWatermark(rs io.ReadSeeker, text string) ([]byte, error) {
+	wm, err := pdfapi.TextWatermark(
+		text,
+		"scale:0.9 abs, rot:45, opacity:0.25, col: 0.5 0.5 0.5, pos:c, points:24",
+		true,  // onTop
+		false, // update existing
+		pdftypes.POINTS,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("watermark: parse: %w", err)
+	}
+
+	var out bytes.Buffer
+	if err := pdfapi.AddWatermarks(rs, &out, nil, wm, nil); err != nil {
+		return nil, fmt.Errorf("watermark: apply: %w", err)
+	}
+	return out.Bytes(), nil
+}
+
+// concept:pdf-watermark:end
 
 // sanitizeFilename remove path separators dari filename untuk Content-Disposition header.
 func sanitizeFilename(name string) string {

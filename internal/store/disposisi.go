@@ -229,6 +229,18 @@ type AssignableUser struct {
 	Roles    []string
 }
 
+// GetUserName lookup full_name + username untuk satu user (dipakai watermark, audit).
+func (s *Store) GetUserName(ctx context.Context, userID string) (fullName, username string, err error) {
+	const q = `SELECT full_name, username FROM users WHERE id = $1`
+	if err := s.pool.QueryRow(ctx, q, userID).Scan(&fullName, &username); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", "", ErrNotFound
+		}
+		return "", "", fmt.Errorf("store: get user name: %w", err)
+	}
+	return fullName, username, nil
+}
+
 // ListAssignableUsers return active users untuk assignee picker.
 // Filter: hanya role staf, camat, admin (bukan student).
 func (s *Store) ListAssignableUsers(ctx context.Context) ([]AssignableUser, error) {
