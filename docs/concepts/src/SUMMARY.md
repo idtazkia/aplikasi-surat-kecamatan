@@ -25,8 +25,10 @@
 - [Operation Log & Idempotency](./algoritma/operation-log.md)
 - [Keyset Pagination](./algoritma/keyset-pagination.md)
 - [Multipart Streaming Upload](./algoritma/multipart-streaming.md)
+- [PDF Watermark — Content Stream](./algoritma/pdf-watermark.md)
 
 # Basis Data
 
 - [B-Tree Partial Index (Soft Delete)](./basis-data/btree-partial-index.md)
 - [SQL Aggregation: array_agg + FILTER](./basis-data/array-agg.md)
+- [Recursive CTE — Graph Traversal](./basis-data/recursive-cte.md)

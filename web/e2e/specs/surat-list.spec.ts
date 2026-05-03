@@ -63,10 +63,8 @@ test("staf TIDAK lihat surat secret", async ({ page }) => {
   await loginAs(page, "staf1");
 
   // Demo seed: surat 0007-000000000006 (Audit Internal) dan
-  // 0008-000000000005 (Laporan Tindak Lanjut Audit) punya access_level=secret
-  const auditMatches = page.locator("table tbody tr").locator("text=/audit/i");
-  // Total page bisa includes match audit non-secret juga, tapi kita verify
-  // bahwa "Pemberitahuan Audit Internal" (secret) tidak muncul.
+  // 0008-000000000005 (Laporan Tindak Lanjut Audit) punya access_level=secret.
+  // Verify bahwa "Pemberitahuan Audit Internal" (secret) tidak muncul untuk staf.
   const allText = await page.locator("table tbody").textContent();
   expect(allText).not.toContain("Pemberitahuan Audit Internal Pemerintah Daerah");
 });

@@ -54,11 +54,11 @@ func (s *Store) AddAttachment(ctx context.Context, in AttachmentInput) error {
 	return tx.Commit(ctx)
 }
 
-// concept:linked-list-version-chain:start
 // ReplaceAttachment = atomic: insert new attachment + mark old is_active=FALSE +
 // set old.replaced_by=new.id. Old surat_id harus sama dengan new (defensif),
 // dan old harus belum direplace.
 // Linked list update: old.replaced_by → new (next pointer), new.replaced_by=NULL (tail).
+// Concept anchor utama ada di schema (db/migrations/schema/0001_init.sql).
 func (s *Store) ReplaceAttachment(ctx context.Context, oldID string, in AttachmentInput) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -190,8 +190,6 @@ func (s *Store) ListAttachmentVersions(ctx context.Context, anyVersionID string)
 	}
 	return out, rows.Err()
 }
-
-// concept:linked-list-version-chain:end
 
 // AttachmentByID return single attachment dengan flag is_active dan path.
 // Caller bisa pakai untuk download.

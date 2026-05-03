@@ -9,10 +9,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// concept:append-only-immutability:start
 // Komentar = catatan append-only di surat. Tidak ada update/delete.
 // Kalau salah ketik, append entry koreksi baru. Audit by construction —
 // tidak perlu audit_log terpisah untuk komentar.
+// Concept anchor utama ada di schema (db/migrations/schema/0001_init.sql).
 type Komentar struct {
 	ID         string
 	SuratID    string
@@ -87,4 +87,3 @@ func (s *Store) ListKomentarBySurat(ctx context.Context, suratID string) ([]Kome
 	return out, rows.Err()
 }
 
-// concept:append-only-immutability:end
