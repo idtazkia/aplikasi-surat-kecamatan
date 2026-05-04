@@ -66,6 +66,7 @@ func main() {
 		SyncStore:         st,
 		OpLogStore:        st,
 		ReconStore:        st,
+		StatsStore:        st,
 		DirektoriStore:    st,
 		AttachmentRoot:  cfg.AttachmentStoragePath,
 	})

@@ -222,6 +222,15 @@ import { h } from "vue";
               Dashboard
             </NButton>
             <NButton
+              v-if="auth.hasRole('camat') || auth.hasRole('admin')"
+              size="small"
+              tertiary
+              @click="router.push({ name: 'stats' })"
+              data-testid="nav-stats"
+            >
+              Statistik
+            </NButton>
+            <NButton
               size="small"
               tertiary
               @click="router.push({ name: 'reconciliation' })"

@@ -57,6 +57,12 @@ const router = createRouter({
       name: "reconciliation",
       component: () => import("@/views/ReconciliationView.vue"),
     },
+    {
+      path: "/stats",
+      name: "stats",
+      component: () => import("@/views/StatsView.vue"),
+      meta: { requireRole: ["camat", "admin"] },
+    },
   ],
 });
 

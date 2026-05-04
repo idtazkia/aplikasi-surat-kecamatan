@@ -423,6 +423,53 @@ export const reconciliationApi = {
   },
 };
 
+export interface StatsByPeriod {
+  bucket: string;
+  jenis_count: { masuk?: number; keluar?: number };
+}
+
+export interface StatsByClassification {
+  klasifikasi_kode?: string;
+  klasifikasi_nama?: string;
+  count: number;
+}
+
+export interface StatsBySender {
+  instansi_id: string;
+  instansi_nama: string;
+  count: number;
+}
+
+export interface StatsStaffLoad {
+  user_id: string;
+  full_name: string;
+  status_count: { pending?: number; in_progress?: number; done?: number; cancelled?: number };
+  overdue_count: number;
+  total_active: number;
+}
+
+export const statsApi = {
+  byPeriod(from?: string, to?: string): Promise<{ items: StatsByPeriod[] }> {
+    const qs = new URLSearchParams();
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
+    const path = qs.toString() ? `/api/stats/by-period?${qs}` : "/api/stats/by-period";
+    return apiClient.get<{ items: StatsByPeriod[] }>(path);
+  },
+
+  byClassification(): Promise<{ items: StatsByClassification[] }> {
+    return apiClient.get<{ items: StatsByClassification[] }>("/api/stats/by-classification");
+  },
+
+  bySender(top = 10): Promise<{ items: StatsBySender[] }> {
+    return apiClient.get<{ items: StatsBySender[] }>(`/api/stats/by-sender?top=${top}`);
+  },
+
+  staffLoad(): Promise<{ items: StatsStaffLoad[] }> {
+    return apiClient.get<{ items: StatsStaffLoad[] }>("/api/stats/staff-load");
+  },
+};
+
 export const dashboardApi = {
   camat(): Promise<DashboardCamatStats> {
     return apiClient.get<DashboardCamatStats>("/api/dashboard/camat");

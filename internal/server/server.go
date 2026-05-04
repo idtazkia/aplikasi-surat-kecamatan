@@ -35,6 +35,7 @@ type Deps struct {
 	SyncStore          SyncStore
 	OpLogStore         OpLogStore
 	ReconStore         ReconciliationStore
+	StatsStore         StatsStore
 	DirektoriStore     DirektoriStore
 	AttachmentRoot  string
 }
@@ -81,6 +82,10 @@ func New(d Deps) http.Handler {
 	mux.Handle("GET /api/reconciliation/{group_id}", d.Auth.Middleware(http.HandlerFunc(reconciliationDetailHandler(d))))
 	mux.Handle("POST /api/reconciliation/{group_id}/merge", d.Auth.Middleware(http.HandlerFunc(reconciliationMergeHandler(d))))
 	mux.Handle("POST /api/reconciliation/{group_id}/keep-both", d.Auth.Middleware(http.HandlerFunc(reconciliationKeepBothHandler(d))))
+	mux.Handle("GET /api/stats/by-period", d.Auth.Middleware(http.HandlerFunc(statsByPeriodHandler(d))))
+	mux.Handle("GET /api/stats/by-classification", d.Auth.Middleware(http.HandlerFunc(statsByClassificationHandler(d))))
+	mux.Handle("GET /api/stats/by-sender", d.Auth.Middleware(http.HandlerFunc(statsBySenderHandler(d))))
+	mux.Handle("GET /api/stats/staff-load", d.Auth.Middleware(http.HandlerFunc(statsStaffLoadHandler(d))))
 	mux.Handle("GET /api/instansi", d.Auth.Middleware(http.HandlerFunc(instansiSearchHandler(d))))
 	mux.Handle("POST /api/instansi", d.Auth.Middleware(http.HandlerFunc(instansiCreateHandler(d))))
 	mux.Handle("GET /api/klasifikasi", d.Auth.Middleware(http.HandlerFunc(klasifikasiListHandler(d))))
