@@ -38,12 +38,28 @@ export interface CachedMeta {
   last_sync_at?: string;       // RFC3339, client-side wallclock
 }
 
+// PendingOp = mutation yang menunggu di-sync ke server. Schema sengaja
+// flat — entity_type + action menentukan siapa yang interpret field_changes.
+export interface PendingOp {
+  client_op_id: string;        // UUIDv7, idempotency key
+  entity_type: "surat" | "komentar";
+  entity_id: string;
+  action: "create" | "update" | "delete" | "append";
+  field_changes: Record<string, unknown>;
+  client_timestamp: string;    // RFC3339, saat op dibuat di klien
+  synced_at?: string;          // RFC3339, saat server konfirmasi applied
+  error?: string;              // populated kalau retry gagal
+  retry_count: number;
+  next_retry_at?: string;      // RFC3339, untuk exponential backoff scheduling
+}
+
 export type SuratKecDB = Dexie & {
   surat: EntityTable<CachedSurat, "id">;
   instansi: EntityTable<CachedInstansi, "id">;
   klasifikasi: EntityTable<CachedLookup, "id">;
   sifat: EntityTable<CachedLookup, "id">;
   meta: EntityTable<CachedMeta, "key">;
+  ops: EntityTable<PendingOp, "client_op_id">;
 };
 
 // Schema versioning: kalau ubah index, bump version. Dexie handle migration
@@ -59,4 +75,11 @@ db.version(1).stores({
   klasifikasi: "id, kode",
   sifat: "id, kode",
   meta: "key",
+});
+
+// v2 — tambah ops store untuk Fase 4 offline write queue.
+// Index: client_op_id PK + secondary index synced_at (untuk filter pending),
+// next_retry_at (untuk drain scheduler).
+db.version(2).stores({
+  ops: "client_op_id, synced_at, next_retry_at, entity_type",
 });

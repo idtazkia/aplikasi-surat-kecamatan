@@ -14,6 +14,7 @@ import {
   type LookupItem, type InstansiItem,
 } from "@/api/surat";
 import { useAuthStore } from "@/stores/auth";
+import { enqueue } from "@/offline/opqueue";
 
 const route = useRoute();
 const router = useRouter();
@@ -272,17 +273,33 @@ async function handleSubmit() {
   try {
     let id = suratID.value;
     if (isEditMode.value) {
-      await suratApi.update(id, {
+      const fieldChanges: Record<string, unknown> = {
         nomor_surat: form.value.nomor_surat,
         perihal: form.value.perihal,
         tanggal_surat: form.value.tanggal_surat,
-        tanggal_terima: form.value.jenis === "masuk" ? form.value.tanggal_terima : undefined,
         instansi_id: form.value.instansi_id,
         klasifikasi_id: form.value.klasifikasi_id || undefined,
         sifat_id: form.value.sifat_id || undefined,
         access_level: form.value.access_level,
+      };
+      if (form.value.jenis === "masuk") {
+        fieldChanges.tanggal_terima = form.value.tanggal_terima;
+      }
+      // Route via opQueue: enqueue + try sync immediate. Kalau offline/network
+      // error, op tetap di Dexie untuk retry — UI tetap navigate (optimistic).
+      const result = await enqueue({
+        entity_type: "surat",
+        entity_id: id,
+        action: "update",
+        field_changes: fieldChanges,
       });
-      message.success("Surat di-update");
+      if (result.applied) {
+        message.success("Surat di-update");
+      } else if (result.reason) {
+        message.error(`Gagal update: ${result.reason}`);
+      } else {
+        message.warning("Tersimpan offline — akan sync saat online");
+      }
     } else {
       const payload: CreateSuratPayload = {
         jenis: form.value.jenis,

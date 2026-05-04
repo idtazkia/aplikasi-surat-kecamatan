@@ -64,6 +64,7 @@ func main() {
 		DashboardStore:    st,
 		NotificationStore: st,
 		SyncStore:         st,
+		OpLogStore:        st,
 		DirektoriStore:    st,
 		AttachmentRoot:  cfg.AttachmentStoragePath,
 	})

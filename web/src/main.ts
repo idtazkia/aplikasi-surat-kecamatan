@@ -5,6 +5,7 @@ import App from "./App.vue";
 import router from "./router";
 import { useOfflineStore } from "@/stores/offline";
 import { useAuthStore } from "@/stores/auth";
+import { startDrainer } from "@/offline/opqueue";
 
 import "vfonts/Lato.css";
 import "vfonts/FiraCode.css";
@@ -25,5 +26,8 @@ const auth = useAuthStore(pinia);
 if (auth.isAuthenticated && offline.online) {
   void offline.sync();
 }
+
+// Start opQueue drainer — periodic background flush ops yang menunggu sync.
+startDrainer();
 
 app.mount("#app");
