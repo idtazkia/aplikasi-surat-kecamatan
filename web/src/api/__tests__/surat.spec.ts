@@ -7,6 +7,7 @@ import {
   dashboardApi,
   notificationApi,
   direktoriApi,
+  reconciliationApi,
 } from "../surat";
 
 // Helper untuk mock fetch result.
@@ -331,6 +332,45 @@ describe("notificationApi", () => {
     await notificationApi.markAllRead();
     const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(call[0]).toBe("/api/notifications/read-all");
+    expect(call[1].method).toBe("POST");
+  });
+});
+
+describe("reconciliationApi", () => {
+  it("list default → GET /api/reconciliation tanpa query", async () => {
+    mockJsonOnce({ items: [] });
+    await reconciliationApi.list();
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe("/api/reconciliation");
+  });
+
+  it("list dengan includeResolved=true → query include_resolved=true", async () => {
+    mockJsonOnce({ items: [] });
+    await reconciliationApi.list(true);
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe(
+      "/api/reconciliation?include_resolved=true",
+    );
+  });
+
+  it("get → GET /api/reconciliation/:group_id", async () => {
+    mockJsonOnce({ group_id: "g1", surats: [] });
+    await reconciliationApi.get("g1");
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe("/api/reconciliation/g1");
+  });
+
+  it("merge → POST /merge dengan canonical_surat_id", async () => {
+    mockJsonOnce({ status: "merged" });
+    await reconciliationApi.merge("g1", "s1");
+    const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/reconciliation/g1/merge");
+    expect(call[1].method).toBe("POST");
+    expect(JSON.parse(call[1].body)).toEqual({ canonical_surat_id: "s1" });
+  });
+
+  it("keepBoth → POST /keep-both dengan body kosong", async () => {
+    mockJsonOnce({ status: "kept_both" });
+    await reconciliationApi.keepBoth("g1");
+    const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(call[0]).toBe("/api/reconciliation/g1/keep-both");
     expect(call[1].method).toBe("POST");
   });
 });
