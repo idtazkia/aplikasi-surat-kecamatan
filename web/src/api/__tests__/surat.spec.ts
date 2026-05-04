@@ -8,6 +8,7 @@ import {
   notificationApi,
   direktoriApi,
   reconciliationApi,
+  statsApi,
 } from "../surat";
 
 // Helper untuk mock fetch result.
@@ -372,6 +373,40 @@ describe("reconciliationApi", () => {
     const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(call[0]).toBe("/api/reconciliation/g1/keep-both");
     expect(call[1].method).toBe("POST");
+  });
+});
+
+describe("statsApi", () => {
+  it("byPeriod tanpa filter → GET /api/stats/by-period", async () => {
+    mockJsonOnce({ items: [] });
+    await statsApi.byPeriod();
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe("/api/stats/by-period");
+  });
+
+  it("byPeriod dengan from + to → query string", async () => {
+    mockJsonOnce({ items: [] });
+    await statsApi.byPeriod("2026-01-01", "2026-12-31");
+    const url = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(url).toContain("from=2026-01-01");
+    expect(url).toContain("to=2026-12-31");
+  });
+
+  it("byClassification → GET", async () => {
+    mockJsonOnce({ items: [] });
+    await statsApi.byClassification();
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe("/api/stats/by-classification");
+  });
+
+  it("bySender(top) → query top=N", async () => {
+    mockJsonOnce({ items: [] });
+    await statsApi.bySender(5);
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe("/api/stats/by-sender?top=5");
+  });
+
+  it("staffLoad → GET", async () => {
+    mockJsonOnce({ items: [] });
+    await statsApi.staffLoad();
+    expect((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe("/api/stats/staff-load");
   });
 });
 
