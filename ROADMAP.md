@@ -99,6 +99,9 @@ Rencana implementasi per fase. Tiap fase deployable mandiri — kalau budget hab
 
 ## Fase 1 — MVP Online: Arsip Digital Surat
 
+**Status MVP delivered (2026-04)**: surat CRUD, attachment upload + preview,
+references CRUD, tembusan CRUD, audit log.
+
 **Versi pertama yang dipakai user**. Online-only. Menggantikan filing fisik.
 
 ### Backend
@@ -155,6 +158,12 @@ Rencana implementasi per fase. Tiap fase deployable mandiri — kalau budget hab
 ---
 
 ## Fase 2 — Supervisi & Kolaborasi
+
+**Status MVP delivered (2026-05)**: disposisi (assign + status update),
+komentar append-only, dashboard camat, inbox, notifikasi in-app
+(polling 30s), watermark PDF, PDF versioning, visualisasi thread
+korespondensi. Item yang TIDAK masuk MVP — Direktori instansi UI admin
++ ACL UI per surat — di-pindah ke **Further Improvement**.
 
 **Setelah Phase 1 stabil**. Tambahkan kolaborasi staf dan supervisi camat.
 
@@ -217,6 +226,11 @@ Rencana implementasi per fase. Tiap fase deployable mandiri — kalau budget hab
 
 ## Fase 3 — PWA Read-Only Offline
 
+**Status MVP delivered (2026-05)**: snapshot sync endpoint dengan watermark
++ tombstones, Dexie cache + auto sync on reconnect, service worker via
+vite-plugin-pwa (NetworkFirst untuk metadata, NetworkOnly untuk PDF),
+offline banner, fallback list view ke IndexedDB.
+
 **Investasi offline pertama**. Read-only karena lebih sederhana dan sudah memberi value besar.
 
 ### Backend
@@ -260,6 +274,13 @@ Rencana implementasi per fase. Tiap fase deployable mandiri — kalau budget hab
 ---
 
 ## Fase 4 — PWA Offline Write & Sync
+
+**Status MVP delivered (2026-05)**: POST /api/sync/operations (idempotency
+via client_op_id PK + row-level LWW), Dexie ops queue, opqueue drainer
+dengan exponential backoff, pending-sync indicator. UUIDv7 client-side
+generator untuk client-generated PK. Item yang TIDAK masuk MVP — per-field
+LWW, conflict resolution UI, create/delete/append actions di opQueue —
+di-pindah ke **Further Improvement**.
 
 **Inti selling point**. Paling kompleks; ditaruh setelah read-only matang.
 
@@ -311,6 +332,14 @@ Rencana implementasi per fase. Tiap fase deployable mandiri — kalau budget hab
 ---
 
 ## Fase 5 — Dedup & Rekonsiliasi
+
+**Status MVP delivered (2026-05)**: server-side dedup detection
+post-create (exact tuple match `instansi_id + nomor_surat + tanggal_terima`),
+reconciliation queue, side-by-side merge UI dengan field diff highlight,
+endpoints (list, detail, merge, keep-both). Item yang TIDAK masuk MVP —
+Levenshtein fuzzy match untuk normalized_sender, Trie struktur, dan
+External-reference resolver background job — di-pindah ke
+**Further Improvement**.
 
 **Edge case offline kolaborasi**. Saat 2 staf input surat sama saat sama-sama offline.
 
@@ -477,6 +506,16 @@ hanya make sense dievaluasi saat itu juga.
   hanya cover PDF born-digital.
 - **Stemming Bahasa Indonesia** untuk tsvector (snowball extension) —
   improve recall search PDF dengan derivasi kata.
+- **Levenshtein fuzzy matching** untuk dedup normalized_sender (Fase 5
+  deferred). Saat ini exact tuple match `(instansi_id, nomor_surat,
+  tanggal_terima)`. Fuzzy berguna kalau "Kemendagri" vs "Kementerian Dalam
+  Negeri RI" perlu di-detect duplikat tanpa alias dictionary.
+- **Trie struktur** untuk prefix lookup di autocomplete instansi — saat ini
+  search via SQL ILIKE. Layak kalau direktori instansi tumbuh besar (>5000
+  rows) atau response time autocomplete jadi pelan.
+- **External-reference resolver** background job (Fase 5 deferred):
+  scan `surat_references.external_ref` text, match dengan surat baru
+  yang ter-input. Notifikasi "mungkin terkait" ke user reference asli.
 
 ### UI/UX
 - **Mobile-specific layout** — responsive breakpoints + PWA install prompt.
@@ -485,6 +524,18 @@ hanya make sense dievaluasi saat itu juga.
   klasifikasi tertentu, attach ke email atau download manual.
 - **Print-friendly view** per surat & list (dedicated print stylesheet) —
   kalau staf butuh hard-copy untuk arsip fisik.
+
+### Sync & Konflik (Fase 4 deferred)
+- **Per-field LWW** — saat ini row-level (compare client_timestamp vs
+  server.updated_at). Per-field butuh schema `field_updated_at JSONB`
+  atau separate table. Layak kalau dua staf sering edit field berbeda
+  pada surat yang sama saat offline.
+- **Conflict resolution UI** — saat ini stale write reject + toast. UI
+  side-by-side untuk konflik yang ambigu (mis. 2 staf edit field sama
+  dalam window waktu dekat) — show "perubahan kamu di-overwrite oleh X".
+- **Create/delete/append actions** di opQueue — saat ini hanya `update`
+  via opQueue. Create baru / delete via opQueue butuh server-side
+  validation tambahan (mis. dedup check di create offline).
 
 ### Operasional
 - **Bulk import** dari CSV + folder PDF — kalau migrasi dari sistem lama.
