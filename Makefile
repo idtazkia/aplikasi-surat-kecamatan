@@ -122,9 +122,11 @@ web-lint:
 concepts-inject:
 	$(GO) run ./tools/concept-links inject
 
-## concepts-emit: generate concept-links.json untuk Vue student drawer
+## concepts-emit: generate concept-links.json — output ke docs (mdBook) +
+##                 web/public (Vue static asset untuk student drawer)
 concepts-emit:
 	$(GO) run ./tools/concept-links emit-json > docs/concepts/src/concept-links.json
+	cp docs/concepts/src/concept-links.json web/public/concept-links.json
 
 ## concepts-lint: deteksi orphan marker / @anchor
 concepts-lint:

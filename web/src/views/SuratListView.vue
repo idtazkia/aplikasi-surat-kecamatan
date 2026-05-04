@@ -9,6 +9,7 @@ import {
 import type { DataTableColumns } from "naive-ui";
 import { useAuthStore } from "@/stores/auth";
 import { useThemeStore } from "@/stores/theme";
+import { useEduPanelStore } from "@/stores/eduPanel";
 import { suratApi, type SuratListItem, type ListSuratParams } from "@/api/surat";
 import { db } from "@/offline/db";
 import NotificationBell from "@/components/NotificationBell.vue";
@@ -17,6 +18,7 @@ import PendingSyncIndicator from "@/components/PendingSyncIndicator.vue";
 const router = useRouter();
 const auth = useAuthStore();
 const themeStore = useThemeStore();
+const eduPanel = useEduPanelStore();
 const message = useMessage();
 
 // State
@@ -242,6 +244,17 @@ import { h } from "vue";
           <NSpace align="center">
             <NButton type="primary" size="small" @click="router.push({ name: 'surat-baru' })">
               + Surat Baru
+            </NButton>
+            <NButton
+              v-if="auth.hasRole('student')"
+              size="small"
+              tertiary
+              :type="eduPanel.enabled ? 'info' : 'default'"
+              @click="eduPanel.enabled = !eduPanel.enabled; eduPanel.drawerOpen = eduPanel.enabled"
+              data-testid="student-mode-toggle"
+              :title="eduPanel.enabled ? 'Tutup panel edukasi' : 'Buka panel edukasi'"
+            >
+              🎓 {{ eduPanel.enabled ? "ON" : "OFF" }}
             </NButton>
             <PendingSyncIndicator />
             <NotificationBell />

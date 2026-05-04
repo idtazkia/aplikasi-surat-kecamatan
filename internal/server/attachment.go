@@ -597,7 +597,37 @@ func suratAttachmentVersionsHandler(d Deps) http.HandlerFunc {
 				UploadedAt: v.UploadedAt.Format("2006-01-02T15:04:05Z07:00"),
 			})
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"versions": out})
+		writeJSONWithEdu(w, r, d, http.StatusOK, map[string]any{"versions": out}, func() *EduPayload {
+			return &EduPayload{
+				Operation: "traverse_linked_list_attachment_versions",
+				DataStructures: []string{
+					"Singly linked list (replaced_by pointer)",
+					"B-tree index idx_attachments_replaced",
+				},
+				Complexity: map[string]interface{}{
+					"theoretical": "O(k) where k = chain depth",
+					"actual": map[string]interface{}{
+						"version_count": len(versions),
+					},
+				},
+				SQL: "WITH RECURSIVE chain AS (\n" +
+					"  -- Walk backward dari given ID ke head (predecessor lookup)\n" +
+					"  SELECT * FROM surat_attachments WHERE id = $1\n" +
+					"  UNION ALL\n" +
+					"  SELECT prev.* FROM surat_attachments prev JOIN chain c\n" +
+					"    ON prev.replaced_by = c.id\n" +
+					"),\n" +
+					"full_chain AS (\n" +
+					"  -- Walk forward dari head ke tail (forward lookup)\n" +
+					"  SELECT * FROM (SELECT id FROM chain ORDER BY depth DESC LIMIT 1) head\n" +
+					"  UNION ALL\n" +
+					"  SELECT next.* FROM surat_attachments next JOIN full_chain fc\n" +
+					"    ON next.id = fc.replaced_by\n" +
+					")\n" +
+					"SELECT * FROM full_chain ORDER BY fdepth ASC;",
+				ConceptIDs: []string{"linked-list-version-chain", "recursive-cte"},
+			}
+		})
 	}
 }
 

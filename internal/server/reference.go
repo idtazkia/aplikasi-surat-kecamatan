@@ -182,7 +182,36 @@ func suratThreadHandler(d Deps) http.HandlerFunc {
 				ExternalRef: n.ExternalRef, Depth: n.Depth, Direction: n.Direction,
 			})
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"nodes": out})
+		writeJSONWithEdu(w, r, d, http.StatusOK, map[string]any{"nodes": out}, func() *EduPayload {
+			return &EduPayload{
+				Operation:      "traverse_surat_thread_via_recursive_cte",
+				DataStructures: []string{"DAG (surat_references graph)", "visited array (cycle detection)"},
+				Complexity: map[string]interface{}{
+					"theoretical": "O(V + E) — visit each node + edge once",
+					"actual": map[string]interface{}{
+						"depth_cap":   50,
+						"node_count":  len(nodes),
+					},
+				},
+				SQL: "WITH RECURSIVE thread AS (\n" +
+					"  -- Anchor: starting surat\n" +
+					"  SELECT ..., ARRAY[s.id] AS visited\n" +
+					"  FROM surat s WHERE s.id = $1\n" +
+					"  UNION ALL\n" +
+					"  -- Recursive: traverse predecessor + successor edges via LATERAL\n" +
+					"  SELECT next.*, t.visited || next.id_uuid\n" +
+					"  FROM thread t\n" +
+					"  JOIN LATERAL (\n" +
+					"    SELECT ... FROM surat_references r JOIN surat ... -- predecessor\n" +
+					"    UNION ALL\n" +
+					"    SELECT ... FROM surat_references r JOIN surat ... -- successor\n" +
+					"  ) next ON TRUE\n" +
+					"  WHERE NOT (next.id_uuid = ANY(t.visited)) AND t.depth < 50\n" +
+					")\n" +
+					"SELECT * FROM thread ORDER BY depth, direction, id;",
+				ConceptIDs: []string{"recursive-cte", "dag-cycle-detection", "graph-adjacency-list"},
+			}
+		})
 	}
 }
 

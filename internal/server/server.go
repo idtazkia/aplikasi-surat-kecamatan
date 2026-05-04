@@ -38,6 +38,7 @@ type Deps struct {
 	StatsStore         StatsStore
 	DirektoriStore     DirektoriStore
 	AttachmentRoot  string
+	StudentMode     bool // env STUDENT_MODE_ENABLED — gate untuk _edu block injection
 }
 
 // New membangun *http.ServeMux dengan semua route ter-register.

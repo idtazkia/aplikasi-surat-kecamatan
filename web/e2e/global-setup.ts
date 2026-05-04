@@ -83,7 +83,7 @@ async function globalSetup(): Promise<() => Promise<void>> {
       JWT_SECRET: "test-secret-32-bytes-long-padding-x",
       LISTEN_ADDR: `127.0.0.1:${BACKEND_PORT}`,
       LOG_LEVEL: "warn",
-      STUDENT_MODE_ENABLED: "false",
+      STUDENT_MODE_ENABLED: "true",
       ATTACHMENT_STORAGE_PATH: path.join(REPO_ROOT, "tmp", "e2e-attachments"),
     },
     stdio: ["ignore", "inherit", "inherit"],

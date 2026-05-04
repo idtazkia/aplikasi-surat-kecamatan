@@ -226,6 +226,28 @@ func komentarListHandler(d Deps) http.HandlerFunc {
 				Body: k.Body, CreatedAt: k.CreatedAt,
 			})
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"items": out})
+		writeJSONWithEdu(w, r, d, http.StatusOK, map[string]any{"items": out}, func() *EduPayload {
+			return &EduPayload{
+				Operation: "list_komentar_append_only",
+				DataStructures: []string{
+					"Append-only log (no update/delete)",
+					"B-tree index (surat_id, created_at) — natural FIFO order",
+				},
+				Complexity: map[string]interface{}{
+					"theoretical": "O(log n + k) — index seek + sequential read k entries",
+					"actual": map[string]interface{}{
+						"komentar_count": len(items),
+					},
+				},
+				SQL: "SELECT k.id, k.surat_id, k.user_id, u.full_name, k.body, k.created_at\n" +
+					"FROM komentar k\n" +
+					"JOIN users u ON u.id = k.user_id\n" +
+					"WHERE k.surat_id = $1\n" +
+					"ORDER BY k.created_at ASC, k.id ASC;\n" +
+					"-- Tidak ada UPDATE/DELETE — typo dikoreksi via append entry baru.\n" +
+					"-- Audit by construction.",
+				ConceptIDs: []string{"append-only-immutability"},
+			}
+		})
 	}
 }

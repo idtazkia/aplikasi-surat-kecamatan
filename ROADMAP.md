@@ -418,16 +418,40 @@ Rencana implementasi per fase. Tiap fase deployable mandiri — kalau budget hab
 
 ## Fase 7 — Future Candidates
 
-**Tidak dijanjikan**. Diputuskan per item kalau ada permintaan konkret dari user.
+**Status**: backlog opsional, diputuskan per item.
 
+### Prioritas (per keputusan dosen, 2026-05)
+
+**Bracket 1 — Cross-cutting (paling dulu):**
+- Student-mode middleware backend (`_edu` block injection di response)
+- Wire ke endpoint representatif (yang punya algoritma matkul)
+
+**Bracket 2 — Small effort, high value:**
+- Migrasi antrian rekonsiliasi ke camat (config change permission matrix, bukan DB change)
+- Read-only role pihak ketiga (auditor/inspektorat) — copy-paste pattern student role
+
+**Bracket 3 — Medium effort, high value:**
 - Full-text search PDF (ekstraksi teks via `pdftotext`, index `tsvector` PostgreSQL)
+- Push notification (Web Push API) — replace polling 30s di NotificationBell
+
+**Defer kecuali ada permintaan konkret:**
 - OCR untuk PDF scan tanpa text layer (Tesseract atau cloud OCR)
-- Read-only role pihak ketiga (auditor/inspektorat)
-- Push notification (Web Push API)
-- Multi-tenancy (Tazkia scale ke kecamatan lain)
 - Mobile-specific layout
-- Migrasi antrian rekonsiliasi ke camat (sudah didesain — config change, bukan DB change)
 - Calendar export (undangan → iCal)
+
+### Keputusan Arsitektur (REJECTED)
+
+- **Multi-tenancy** — TIDAK akan diimplement. Skala ke kecamatan lain via
+  pendekatan **multi-instance** saja (1 deployment app + DB per kecamatan).
+  Trade-off: ops overhead per instance, tapi schema sederhana, isolation
+  hard, dan billing per-kecamatan jelas.
+
+### Open Items (tunggu info)
+
+- Backup pipeline (pg_dump + rclone), deployment automation, CI/CD pipeline
+  detail — pending klarifikasi sumber dana infra (sponsor swasta vs APBD
+  kecamatan). Saat ini test suite (95 unit + 81 E2E) sudah cukup robust
+  untuk verifikasi manual deployment.
 
 ---
 

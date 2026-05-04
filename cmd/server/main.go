@@ -68,6 +68,7 @@ func main() {
 		ReconStore:        st,
 		StatsStore:        st,
 		DirektoriStore:    st,
+		StudentMode:       cfg.StudentMode,
 		AttachmentRoot:  cfg.AttachmentStoragePath,
 	})
 

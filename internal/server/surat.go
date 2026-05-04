@@ -117,7 +117,26 @@ func suratListHandler(d Deps) http.HandlerFunc {
 			last := items[len(items)-1]
 			resp.NextCursor = &suratCursor{CreatedAt: last.CreatedAt, ID: last.ID}
 		}
-		writeJSON(w, http.StatusOK, resp)
+		writeJSONWithEdu(w, r, d, http.StatusOK, resp, func() *EduPayload {
+			return &EduPayload{
+				Operation:      "list_surat_with_keyset_pagination",
+				DataStructures: []string{"B-tree index pada (created_at, id)"},
+				Complexity: map[string]interface{}{
+					"theoretical":   "O(log n + page_size) — index seek + sequential scan",
+					"without_index": "O(n) full scan",
+					"actual": map[string]interface{}{
+						"page_size": filter.Limit,
+						"returned":  len(items),
+					},
+				},
+				SQL: "SELECT ... FROM surat s\n" +
+					"WHERE NOT s.is_deleted [+ filters]\n" +
+					"  AND (s.created_at, s.id) < (cursor_created_at, cursor_id)  -- keyset\n" +
+					"ORDER BY s.created_at DESC, s.id DESC\n" +
+					"LIMIT $N",
+				ConceptIDs: []string{"keyset-pagination", "btree-partial-index-soft-delete"},
+			}
+		})
 	}
 }
 
