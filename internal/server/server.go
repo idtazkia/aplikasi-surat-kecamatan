@@ -36,6 +36,7 @@ type Deps struct {
 	OpLogStore         OpLogStore
 	ReconStore         ReconciliationStore
 	StatsStore         StatsStore
+	FTSStore           FTSStore
 	DirektoriStore     DirektoriStore
 	AttachmentRoot  string
 	StudentMode     bool // env STUDENT_MODE_ENABLED — gate untuk _edu block injection

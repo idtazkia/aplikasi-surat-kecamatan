@@ -15,6 +15,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
+	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728 // indirect
 	github.com/mattn/go-runewidth v0.0.23 // indirect
 	github.com/pdfcpu/pdfcpu v0.12.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

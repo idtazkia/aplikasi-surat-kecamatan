@@ -225,6 +225,16 @@ func suratUpdateHandler(d Deps) http.HandlerFunc {
 			return
 		}
 
+		// Rebuild FTS kalau metadata yang masuk search_doc berubah (perihal
+		// atau nomor_surat). Schema trigger hanya fire BEFORE INSERT supaya
+		// extracted attachment text tidak hilang saat update biasa — handler
+		// yang trigger explicit di mutation path metadata.
+		if d.FTSStore != nil && (req.Perihal != nil || req.NomorSurat != nil) {
+			if err := rebuildSearchDoc(r.Context(), d, id); err != nil {
+				d.Logger.Warn("fts: rebuild after update gagal", "err", err, "surat_id", id)
+			}
+		}
+
 		writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 	}
 }

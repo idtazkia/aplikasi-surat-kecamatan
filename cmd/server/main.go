@@ -67,6 +67,7 @@ func main() {
 		OpLogStore:        st,
 		ReconStore:        st,
 		StatsStore:        st,
+		FTSStore:          st,
 		DirektoriStore:    st,
 		StudentMode:       cfg.StudentMode,
 		AttachmentRoot:  cfg.AttachmentStoragePath,

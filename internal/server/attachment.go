@@ -174,6 +174,14 @@ func suratAttachmentsUploadHandler(d Deps) http.HandlerFunc {
 			return
 		}
 
+		// Rebuild FTS search_doc setelah upload baru. Non-fatal: kalau extract
+		// gagal, lampiran tetap tersimpan, hanya search content kurang lengkap.
+		if d.FTSStore != nil {
+			if err := rebuildSearchDoc(r.Context(), d, suratID); err != nil {
+				d.Logger.Warn("fts: rebuild after upload gagal", "err", err, "surat_id", suratID)
+			}
+		}
+
 		writeJSON(w, http.StatusCreated, map[string]any{
 			"uploaded": uploaded,
 		})
@@ -533,6 +541,13 @@ func suratAttachmentReplaceHandler(d Deps) http.HandlerFunc {
 			d.Logger.Error("replace: store", "err", err)
 			writeError(w, http.StatusInternalServerError, "internal error")
 			return
+		}
+
+		// Rebuild FTS setelah replace (versi aktif berubah).
+		if d.FTSStore != nil {
+			if err := rebuildSearchDoc(r.Context(), d, suratID); err != nil {
+				d.Logger.Warn("fts: rebuild after replace gagal", "err", err, "surat_id", suratID)
+			}
 		}
 
 		writeJSON(w, http.StatusOK, attachmentDTO{

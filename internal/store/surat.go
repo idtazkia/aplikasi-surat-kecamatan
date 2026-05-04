@@ -91,7 +91,10 @@ func (s *Store) ListSurat(ctx context.Context, f ListSuratFilter) ([]SuratListIt
 		conditions = append(conditions, "s.sifat_id = "+addArg(f.SifatID))
 	}
 	if f.Search != "" {
-		conditions = append(conditions, "s.perihal ILIKE "+addArg("%"+f.Search+"%"))
+		// Full-text search via tsvector @@ tsquery. plainto_tsquery handle
+		// multi-word + escape special chars. Match per-keyword exact (tidak
+		// prefix) — cukup untuk use case operasional surat.
+		conditions = append(conditions, "s.search_doc @@ plainto_tsquery('simple', "+addArg(f.Search)+")")
 	}
 	if !f.IncludeSecret {
 		conditions = append(conditions, "s.access_level <> 'secret'")
