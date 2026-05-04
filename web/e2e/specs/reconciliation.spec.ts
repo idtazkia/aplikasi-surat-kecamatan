@@ -10,7 +10,7 @@ async function loginAs(page: Page, username: string) {
   await page.goto("/login");
   await page.evaluate(() => localStorage.clear());
   await page.goto("/login");
-  await page.getByPlaceholder("staf1 / camat / admin").fill(username);
+  await page.getByPlaceholder("staf1 / camat / admin / auditor").fill(username);
   await page.getByPlaceholder("demo123").fill("demo123");
   await Promise.all([
     page.waitForURL(/\/surat$/),
@@ -73,10 +73,14 @@ test("create surat masuk dengan dedup tuple sama → response berisi reconciliat
   expect(r2.reconciliation_group_id).toBeDefined();
   expect(r2.reconciliation_group_id).toMatch(/^[\w-]{36}$/);
 
-  // GET /api/reconciliation → group muncul di list
+  // GET /api/reconciliation → camat-only access (staf 403). Login ulang sbg camat
+  // untuk verify list endpoint.
+  await loginAs(page, "camat");
+  const camatToken = await getToken(page);
   const listResp = await request.get("/api/reconciliation", {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: { Authorization: `Bearer ${camatToken}` },
   });
+  expect(listResp.status()).toBe(200);
   const list = await listResp.json();
   const found = list.items.find(
     (g: { group_id: string }) => g.group_id === r2.reconciliation_group_id,
@@ -140,7 +144,8 @@ test("FULL UI: dedup pair → /reconciliation list → pilih kanonik → merge �
   });
   expect(r2.reconciliation_group_id).toBeDefined();
 
-  // UI: navigate ke /reconciliation lewat topbar
+  // Switch ke camat untuk operasi rekonsiliasi (staf tidak punya akses).
+  await loginAs(page, "camat");
   await page.goto("/surat");
   await page.getByTestId("nav-reconciliation").click();
   await expect(page).toHaveURL(/\/reconciliation$/);
@@ -197,6 +202,8 @@ test("FULL UI: keep-both flow → kedua surat tetap aktif, status group → kept
     tanggal_terima: tanggal,
   });
 
+  // Switch ke camat untuk operasi rekonsiliasi
+  await loginAs(page, "camat");
   await page.goto(`/reconciliation`);
   await page.getByTestId(`recon-group-${r2.reconciliation_group_id}`).click();
 

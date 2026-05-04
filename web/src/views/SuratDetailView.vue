@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   NLayout, NLayoutHeader, NLayoutContent, NSpace, NButton, NText, NCard, NTag,
@@ -20,6 +20,12 @@ const route = useRoute();
 const router = useRouter();
 const message = useMessage();
 const authStore = useAuthStore();
+
+// canWrite — gate semua mutation actions (edit, delete, tambah lampiran/
+// reference/tembusan/komentar/disposisi). Auditor + student read-only.
+const canWrite = computed(() =>
+  authStore.hasRole("staf") || authStore.hasRole("camat") || authStore.hasRole("admin"),
+);
 
 const detail = ref<SuratDetail | null>(null);
 const loading = ref(true);
@@ -650,7 +656,7 @@ onMounted(fetchDetail);
           <NButton text @click="router.push({ name: 'surat-list' })">← Daftar</NButton>
           <NText strong>Detail Surat</NText>
         </NSpace>
-        <NSpace v-if="detail" align="center">
+        <NSpace v-if="detail && canWrite" align="center">
           <NButton size="small" @click="handleEdit">Edit</NButton>
           <NPopconfirm @positive-click="handleDelete">
             <template #trigger>
@@ -781,7 +787,7 @@ onMounted(fetchDetail);
           <!-- Lampiran -->
           <NCard title="Lampiran">
             <template #header-extra>
-              <NButton size="small" type="primary" tertiary @click="openAddAttDialog" data-testid="add-attachment-btn">
+              <NButton v-if="canWrite" size="small" type="primary" tertiary @click="openAddAttDialog" data-testid="add-attachment-btn">
                 + Tambah Lampiran
               </NButton>
             </template>
@@ -810,6 +816,7 @@ onMounted(fetchDetail);
                       </NButton>
                       <NButton size="tiny" @click="downloadAttachment(att.id)">Unduh</NButton>
                       <NButton
+                        v-if="canWrite"
                         size="tiny"
                         tertiary
                         @click="openReplaceDialog(att.id, att.file_name)"
@@ -851,7 +858,7 @@ onMounted(fetchDetail);
           <!-- Tembusan -->
           <NCard title="Tembusan" data-testid="tembusan-card">
             <template #header-extra>
-              <NButton size="small" type="primary" tertiary @click="openAddTembusanDialog" data-testid="add-tembusan-btn">
+              <NButton v-if="canWrite" size="small" type="primary" tertiary @click="openAddTembusanDialog" data-testid="add-tembusan-btn">
                 + Tambah Tembusan
               </NButton>
             </template>
@@ -867,7 +874,7 @@ onMounted(fetchDetail);
                       <em style="margin-left: 4px">{{ t.external_text }}</em>
                     </span>
                   </template>
-                  <template #header-extra>
+                  <template v-if="canWrite" #header-extra>
                     <NPopconfirm @positive-click="deleteTembusan(t.id)">
                       <template #trigger>
                         <NButton size="tiny" tertiary type="error" data-testid="delete-tembusan-btn">Hapus</NButton>
@@ -887,7 +894,7 @@ onMounted(fetchDetail);
                 <NButton size="small" tertiary @click="openThreadDialog" data-testid="thread-view-btn">
                   Lihat Thread Lengkap
                 </NButton>
-                <NButton size="small" type="primary" tertiary @click="openAddRefDialog" data-testid="add-reference-btn">
+                <NButton v-if="canWrite" size="small" type="primary" tertiary @click="openAddRefDialog" data-testid="add-reference-btn">
                   + Tambah Referensi
                 </NButton>
               </NSpace>
@@ -916,7 +923,7 @@ onMounted(fetchDetail);
                           </span>
                         </span>
                       </template>
-                      <template #header-extra>
+                      <template v-if="canWrite" #header-extra>
                         <NPopconfirm @positive-click="deleteReference(ref.id)">
                           <template #trigger>
                             <NButton size="tiny" tertiary type="error" data-testid="delete-reference-btn">Hapus</NButton>
@@ -975,7 +982,7 @@ onMounted(fetchDetail);
                 </NThing>
               </NListItem>
             </NList>
-            <NSpace vertical :size="8" style="margin-top: 16px">
+            <NSpace v-if="canWrite" vertical :size="8" style="margin-top: 16px">
               <NInput
                 v-model:value="newKomentarBody"
                 type="textarea"

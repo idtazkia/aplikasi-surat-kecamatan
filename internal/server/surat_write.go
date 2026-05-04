@@ -49,6 +49,10 @@ func suratCreateHandler(d Deps) http.HandlerFunc {
 			writeError(w, http.StatusUnauthorized, "claims missing")
 			return
 		}
+		if !requireWriter(claims.Roles) {
+			writeError(w, http.StatusForbidden, "role tidak punya hak tulis")
+			return
+		}
 
 		var req createSuratRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -151,6 +155,10 @@ func suratUpdateHandler(d Deps) http.HandlerFunc {
 			writeError(w, http.StatusUnauthorized, "claims missing")
 			return
 		}
+		if !requireWriter(claims.Roles) {
+			writeError(w, http.StatusForbidden, "role tidak punya hak tulis")
+			return
+		}
 
 		id := r.PathValue("id")
 		if id == "" {
@@ -226,6 +234,10 @@ func suratDeleteHandler(d Deps) http.HandlerFunc {
 		claims, ok := auth.ClaimsFromContext(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "claims missing")
+			return
+		}
+		if !requireWriter(claims.Roles) {
+			writeError(w, http.StatusForbidden, "role tidak punya hak tulis")
 			return
 		}
 

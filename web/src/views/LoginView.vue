@@ -41,7 +41,7 @@ async function handleSubmit() {
     <NCard title="Aplikasi Surat Kecamatan" class="login-card">
       <NForm @submit.prevent="handleSubmit">
         <NFormItem label="Username">
-          <NInput v-model:value="username" placeholder="staf1 / camat / admin" />
+          <NInput v-model:value="username" placeholder="staf1 / camat / admin / auditor" />
         </NFormItem>
         <NFormItem label="Password">
           <NInput

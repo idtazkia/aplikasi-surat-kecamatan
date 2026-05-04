@@ -55,6 +55,17 @@ func requireSupervisor(roles []string) bool {
 	return false
 }
 
+// requireWriter — block read-only role (auditor, student) dari mutation.
+// staf/camat/admin OK. Dipakai sebagai gate di handler create/update/delete.
+func requireWriter(roles []string) bool {
+	for _, r := range roles {
+		if r == "staf" || r == "camat" || r == "admin" {
+			return true
+		}
+	}
+	return false
+}
+
 func statsByPeriodHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := auth.ClaimsFromContext(r.Context())

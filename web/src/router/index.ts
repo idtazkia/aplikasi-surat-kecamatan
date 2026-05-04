@@ -56,6 +56,7 @@ const router = createRouter({
       path: "/reconciliation",
       name: "reconciliation",
       component: () => import("@/views/ReconciliationView.vue"),
+      meta: { requireRole: ["camat", "admin"] },
     },
     {
       path: "/stats",

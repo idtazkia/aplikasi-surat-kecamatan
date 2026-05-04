@@ -12,7 +12,7 @@ test("akses / tanpa login -> redirect ke /login dengan ?next", async ({ page }) 
 
 test("login -> refresh page -> tetap authenticated", async ({ page }) => {
   await page.goto("/login");
-  await page.getByPlaceholder("staf1 / camat / admin").fill("staf1");
+  await page.getByPlaceholder("staf1 / camat / admin / auditor").fill("staf1");
   await page.getByPlaceholder("demo123").fill("demo123");
   await Promise.all([
     page.waitForURL(/\/surat$/),
@@ -28,7 +28,7 @@ test("login -> refresh page -> tetap authenticated", async ({ page }) => {
 
 test("logout -> token cleared dari localStorage + redirect login", async ({ page }) => {
   await page.goto("/login");
-  await page.getByPlaceholder("staf1 / camat / admin").fill("staf1");
+  await page.getByPlaceholder("staf1 / camat / admin / auditor").fill("staf1");
   await page.getByPlaceholder("demo123").fill("demo123");
   await Promise.all([
     page.waitForURL(/\/surat$/),
@@ -47,7 +47,7 @@ test("logout -> token cleared dari localStorage + redirect login", async ({ page
 
 test("dark mode toggle persist setelah refresh", async ({ page }) => {
   await page.goto("/login");
-  await page.getByPlaceholder("staf1 / camat / admin").fill("staf1");
+  await page.getByPlaceholder("staf1 / camat / admin / auditor").fill("staf1");
   await page.getByPlaceholder("demo123").fill("demo123");
   await Promise.all([
     page.waitForURL(/\/surat$/),

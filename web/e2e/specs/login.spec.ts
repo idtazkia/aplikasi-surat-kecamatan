@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("login dengan kredensial valid -> redirect ke home", async ({ page }) => {
-  await page.getByPlaceholder("staf1 / camat / admin").fill("staf1");
+  await page.getByPlaceholder("staf1 / camat / admin / auditor").fill("staf1");
   await page.getByPlaceholder("demo123").fill("demo123");
 
   // Click submit, tunggu navigation
@@ -31,7 +31,7 @@ test("login dengan kredensial valid -> redirect ke home", async ({ page }) => {
 });
 
 test("login dengan password salah -> error message tampil", async ({ page }) => {
-  await page.getByPlaceholder("staf1 / camat / admin").fill("staf1");
+  await page.getByPlaceholder("staf1 / camat / admin / auditor").fill("staf1");
   await page.getByPlaceholder("demo123").fill("password-salah");
   await page.getByRole("button", { name: "Masuk" }).click();
 
@@ -44,7 +44,7 @@ test("login dengan password salah -> error message tampil", async ({ page }) => 
 });
 
 test("login dengan user tidak dikenal -> error 401", async ({ page }) => {
-  await page.getByPlaceholder("staf1 / camat / admin").fill("ghost-user");
+  await page.getByPlaceholder("staf1 / camat / admin / auditor").fill("ghost-user");
   await page.getByPlaceholder("demo123").fill("anything");
   await page.getByRole("button", { name: "Masuk" }).click();
 
@@ -61,7 +61,7 @@ test("login dengan field kosong -> warning", async ({ page }) => {
 });
 
 test("login sebagai camat -> role camat tampil di header", async ({ page }) => {
-  await page.getByPlaceholder("staf1 / camat / admin").fill("camat");
+  await page.getByPlaceholder("staf1 / camat / admin / auditor").fill("camat");
   await page.getByPlaceholder("demo123").fill("demo123");
   await Promise.all([
     page.waitForURL(/\/surat$/),
@@ -72,7 +72,7 @@ test("login sebagai camat -> role camat tampil di header", async ({ page }) => {
 });
 
 test("login sebagai admin -> role admin", async ({ page }) => {
-  await page.getByPlaceholder("staf1 / camat / admin").fill("admin");
+  await page.getByPlaceholder("staf1 / camat / admin / auditor").fill("admin");
   await page.getByPlaceholder("demo123").fill("demo123");
   await Promise.all([
     page.waitForURL(/\/surat$/),

@@ -9,7 +9,7 @@ async function loginAs(page: Page, username: string) {
   await page.goto("/login");
   await page.evaluate(() => localStorage.clear());
   await page.goto("/login");
-  await page.getByPlaceholder("staf1 / camat / admin").fill(username);
+  await page.getByPlaceholder("staf1 / camat / admin / auditor").fill(username);
   await page.getByPlaceholder("demo123").fill("demo123");
   await Promise.all([
     page.waitForURL(/\/surat$/),

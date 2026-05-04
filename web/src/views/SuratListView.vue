@@ -233,6 +233,7 @@ import { h } from "vue";
               Statistik
             </NButton>
             <NButton
+              v-if="auth.hasRole('camat') || auth.hasRole('admin')"
               size="small"
               tertiary
               @click="router.push({ name: 'reconciliation' })"
@@ -242,7 +243,13 @@ import { h } from "vue";
             </NButton>
           </NSpace>
           <NSpace align="center">
-            <NButton type="primary" size="small" @click="router.push({ name: 'surat-baru' })">
+            <NButton
+              v-if="auth.hasRole('staf') || auth.hasRole('camat') || auth.hasRole('admin')"
+              type="primary"
+              size="small"
+              @click="router.push({ name: 'surat-baru' })"
+              data-testid="nav-surat-baru"
+            >
               + Surat Baru
             </NButton>
             <NButton

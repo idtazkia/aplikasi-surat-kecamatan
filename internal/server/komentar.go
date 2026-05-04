@@ -51,6 +51,10 @@ func komentarAppendHandler(d Deps) http.HandlerFunc {
 			writeError(w, http.StatusUnauthorized, "claims missing")
 			return
 		}
+		if !requireWriter(claims.Roles) {
+			writeError(w, http.StatusForbidden, "role tidak punya hak tulis")
+			return
+		}
 
 		suratID := r.PathValue("id")
 		if suratID == "" {

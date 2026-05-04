@@ -43,9 +43,13 @@ type reconDetailDTO struct {
 
 func reconciliationListHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, ok := auth.ClaimsFromContext(r.Context())
+		claims, ok := auth.ClaimsFromContext(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "claims missing")
+			return
+		}
+		if !requireSupervisor(claims.Roles) {
+			writeError(w, http.StatusForbidden, "rekonsiliasi hanya untuk role camat/admin")
 			return
 		}
 
@@ -76,9 +80,13 @@ func reconciliationListHandler(d Deps) http.HandlerFunc {
 
 func reconciliationDetailHandler(d Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, ok := auth.ClaimsFromContext(r.Context())
+		claims, ok := auth.ClaimsFromContext(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "claims missing")
+			return
+		}
+		if !requireSupervisor(claims.Roles) {
+			writeError(w, http.StatusForbidden, "rekonsiliasi hanya untuk role camat/admin")
 			return
 		}
 
@@ -127,6 +135,10 @@ func reconciliationMergeHandler(d Deps) http.HandlerFunc {
 			writeError(w, http.StatusUnauthorized, "claims missing")
 			return
 		}
+		if !requireSupervisor(claims.Roles) {
+			writeError(w, http.StatusForbidden, "rekonsiliasi hanya untuk role camat/admin")
+			return
+		}
 
 		groupID := r.PathValue("group_id")
 		if groupID == "" {
@@ -162,6 +174,10 @@ func reconciliationKeepBothHandler(d Deps) http.HandlerFunc {
 		claims, ok := auth.ClaimsFromContext(r.Context())
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "claims missing")
+			return
+		}
+		if !requireSupervisor(claims.Roles) {
+			writeError(w, http.StatusForbidden, "rekonsiliasi hanya untuk role camat/admin")
 			return
 		}
 
