@@ -367,6 +367,11 @@ Rencana implementasi per fase. Tiap fase deployable mandiri — kalau budget hab
 
 **Polish & utility**. Setelah core lengkap.
 
+**Status MVP delivered (2026-05)**: aggregation endpoints (by-period,
+by-classification, by-sender, staff-load) + frontend stats page. Item
+yang TIDAK masuk MVP — bulk import, reminder cron, export CSV/XLSX,
+handout PDF tooling — di-pindah ke **Further Improvement** section.
+
 ### Backend
 - Aggregation endpoints:
   - `GET /api/stats/by-period?bucket=month` — surat per bulan, dengan BRIN index pada `tanggal_terima`
@@ -416,28 +421,22 @@ Rencana implementasi per fase. Tiap fase deployable mandiri — kalau budget hab
 
 ---
 
-## Fase 7 — Future Candidates
+## Fase 7 — Concluded (2026-05)
 
-**Status**: backlog opsional, diputuskan per item.
+Status: **selesai**. Item yang di-deliver:
 
-### Prioritas (per keputusan dosen, 2026-05)
-
-**Bracket 1 — Cross-cutting (paling dulu):**
-- Student-mode middleware backend (`_edu` block injection di response)
-- Wire ke endpoint representatif (yang punya algoritma matkul)
+**Bracket 1 — Cross-cutting:**
+- ✓ Student-mode middleware backend (`_edu` block injection di response)
+- ✓ Wire ke endpoint representatif (list surat, thread, attachment versions, komentar)
+- ✓ Frontend drawer auto-open + concept-link dereference
 
 **Bracket 2 — Small effort, high value:**
-- Migrasi antrian rekonsiliasi ke camat (config change permission matrix, bukan DB change)
-- Read-only role pihak ketiga (auditor/inspektorat) — copy-paste pattern student role
+- ✓ Migrasi antrian rekonsiliasi ke camat (permission matrix change, bukan DB change)
+- ✓ Read-only role pihak ketiga (auditor/inspektorat)
 
 **Bracket 3 — Medium effort, high value:**
-- Full-text search PDF (ekstraksi teks via `pdftotext`, index `tsvector` PostgreSQL)
-- Push notification (Web Push API) — replace polling 30s di NotificationBell
-
-**Defer kecuali ada permintaan konkret:**
-- OCR untuk PDF scan tanpa text layer (Tesseract atau cloud OCR)
-- Mobile-specific layout
-- Calendar export (undangan → iCal)
+- ✓ Full-text search PDF (ekstraksi teks via `ledongthuc/pdf`, index `tsvector` PostgreSQL)
+- ✓ Manual sync button di topbar (replace push-notif kebutuhan untuk MVP)
 
 ### Keputusan Arsitektur (REJECTED)
 
@@ -450,8 +449,64 @@ Rencana implementasi per fase. Tiap fase deployable mandiri — kalau budget hab
 
 - Backup pipeline (pg_dump + rclone), deployment automation, CI/CD pipeline
   detail — pending klarifikasi sumber dana infra (sponsor swasta vs APBD
-  kecamatan). Saat ini test suite (95 unit + 81 E2E) sudah cukup robust
+  kecamatan). Saat ini test suite (95 unit + 100 E2E) sudah cukup robust
   untuk verifikasi manual deployment.
+
+---
+
+## Further Improvement
+
+Daftar ide implementasi yang **TIDAK terikat fase atau timeline**.
+Boleh diambil kapan saja kalau ada permintaan konkret dari pengguna,
+mahasiswa kontributor yang ingin learning project, atau kebutuhan operasional
+yang muncul setelah deployment.
+
+Tidak ada commitment penyelesaian — masing-masing punya cost/benefit yang
+hanya make sense dievaluasi saat itu juga.
+
+### Real-time / Push
+- **Push notification** (Web Push API) — replace polling 30s di NotificationBell
+  saat reliable real-time delivery dibutuhkan (mis. mobile staf di lapangan).
+  Trade-off saat ini: polling 30s + tombol sync manual sudah cukup untuk
+  workflow batch kantor kecamatan. Push notif tambah kompleksitas (VAPID,
+  service worker push handler, permission UX) yang belum justified.
+
+### Konten & Pencarian
+- **OCR untuk PDF scan** tanpa text layer — Tesseract (lokal) atau cloud OCR.
+  Berguna kalau staf sering scan surat fisik tanpa text layer. Saat ini FTS
+  hanya cover PDF born-digital.
+- **Stemming Bahasa Indonesia** untuk tsvector (snowball extension) —
+  improve recall search PDF dengan derivasi kata.
+
+### UI/UX
+- **Mobile-specific layout** — responsive breakpoints + PWA install prompt.
+  Useful kalau ada deployment mobile-first (camat lapangan).
+- **Calendar export** (undangan → iCal `.ics`) — generate dari surat dengan
+  klasifikasi tertentu, attach ke email atau download manual.
+- **Print-friendly view** per surat & list (dedicated print stylesheet) —
+  kalau staf butuh hard-copy untuk arsip fisik.
+
+### Operasional
+- **Bulk import** dari CSV + folder PDF — kalau migrasi dari sistem lama.
+- **Reminder job** background (overdue notifikasi) — saat ini overdue
+  hanya tampil pasif di indicator. Trigger proactive butuh cron/scheduler.
+- **Export CSV/XLSX** — sudah ada tabel di stats page; export untuk audit
+  eksternal kalau diminta.
+- **Direktori instansi UI admin** (CRUD + merge alias) — saat ini admin
+  edit via SQL. UI worth kalau frequency tinggi.
+- **ACL UI per surat** (admin set access_level + manage user list) —
+  saat ini access_level set di form, list user belum ada UI.
+- **Reminder threshold settings** (admin) — configurable per sifat.
+
+### Education / Concept Catalog
+- **Handout export tooling** (`tools/handout-export/`) — collect concept
+  catalog → PDF per matkul (Pandoc → LaTeX). QR code di setiap concept
+  page yang berisi GitHub permalink.
+- **Stemming Bahasa Indonesia concept anchor** — kalau snowball ekstensi
+  diaktifkan, concept page baru tentang language-specific text search.
+- **Visualisasi statistik chart yang lebih kompleks** (Chart.js atau
+  echarts) — saat ini bar via NProgress. Layak kalau ada permintaan
+  visualisasi time series / heatmap yang lebih kaya.
 
 ---
 

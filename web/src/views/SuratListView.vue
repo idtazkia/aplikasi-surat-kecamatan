@@ -14,11 +14,13 @@ import { suratApi, type SuratListItem, type ListSuratParams } from "@/api/surat"
 import { db } from "@/offline/db";
 import NotificationBell from "@/components/NotificationBell.vue";
 import PendingSyncIndicator from "@/components/PendingSyncIndicator.vue";
+import { useGlobalSync } from "@/composables/useGlobalSync";
 
 const router = useRouter();
 const auth = useAuthStore();
 const themeStore = useThemeStore();
 const eduPanel = useEduPanelStore();
+const globalSync = useGlobalSync();
 const message = useMessage();
 
 // State
@@ -262,6 +264,16 @@ import { h } from "vue";
               :title="eduPanel.enabled ? 'Tutup panel edukasi' : 'Buka panel edukasi'"
             >
               🎓 {{ eduPanel.enabled ? "ON" : "OFF" }}
+            </NButton>
+            <NButton
+              size="small"
+              tertiary
+              :loading="globalSync.syncing.value"
+              @click="globalSync.runAll()"
+              data-testid="global-sync-btn"
+              title="Sync sekarang: pull notifikasi, push pending changes, refresh cache"
+            >
+              🔄
             </NButton>
             <PendingSyncIndicator />
             <NotificationBell />
