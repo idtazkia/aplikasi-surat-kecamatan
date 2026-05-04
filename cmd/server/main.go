@@ -65,6 +65,7 @@ func main() {
 		NotificationStore: st,
 		SyncStore:         st,
 		OpLogStore:        st,
+		ReconStore:        st,
 		DirektoriStore:    st,
 		AttachmentRoot:  cfg.AttachmentStoragePath,
 	})

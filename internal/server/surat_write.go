@@ -33,6 +33,11 @@ type createSuratRequest struct {
 	AccessLevel   string  `json:"access_level"`
 }
 
+type createSuratResponseWithDedup struct {
+	ID                  string `json:"id"`
+	ReconciliationGroup string `json:"reconciliation_group_id"`
+}
+
 type createSuratResponse struct {
 	ID string `json:"id"`
 }
@@ -103,6 +108,25 @@ func suratCreateHandler(d Deps) http.HandlerFunc {
 			d.Logger.Error("create surat: store", "err", err)
 			writeError(w, http.StatusInternalServerError, "internal error")
 			return
+		}
+
+		// Post-create: dedup detection untuk surat masuk. Kalau ada surat lain
+		// dengan (instansi_id, nomor_surat, tanggal_terima) sama, masuk
+		// reconciliation_queue. Tidak block create — staf yang submit dapat
+		// surat-nya tersimpan, supervisor handle merge nanti.
+		if d.ReconStore != nil {
+			groupID, derr := d.ReconStore.CreateReconciliationGroupIfDuplicate(r.Context(), input.ID)
+			if derr != nil {
+				// Non-fatal: log + lanjut. Klien tetap dapat surat berhasil.
+				d.Logger.Error("dedup detection failed", "err", derr, "surat_id", input.ID)
+			} else if groupID != "" {
+				d.Logger.Info("duplicate detected", "group_id", groupID, "surat_id", input.ID)
+				writeJSON(w, http.StatusCreated, createSuratResponseWithDedup{
+					ID:                  input.ID,
+					ReconciliationGroup: groupID,
+				})
+				return
+			}
 		}
 
 		writeJSON(w, http.StatusCreated, createSuratResponse{ID: input.ID})

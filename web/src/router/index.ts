@@ -52,6 +52,11 @@ const router = createRouter({
       component: () => import("@/views/DashboardView.vue"),
       meta: { requireRole: ["camat", "admin"] },
     },
+    {
+      path: "/reconciliation",
+      name: "reconciliation",
+      component: () => import("@/views/ReconciliationView.vue"),
+    },
   ],
 });
 

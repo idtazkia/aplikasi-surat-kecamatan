@@ -190,37 +190,7 @@ func suratDetailHandler(d Deps) http.HandlerFunc {
 			return
 		}
 
-		resp := suratDetailResponse{
-			suratListItemDTO:     toListDTO(detail.SuratListItem),
-			DeskripsiKlasifikasi: detail.DeskripsiKlasifikasi,
-			NamaSifat:            detail.NamaSifat,
-			Attachments:          make([]suratAttachmentDTO, 0, len(detail.Attachments)),
-			Predecessors:         make([]suratReferenceDTO, 0, len(detail.Predecessors)),
-			Successors:           make([]suratReferenceDTO, 0, len(detail.Successors)),
-			Tembusan:             make([]suratTembusanDTO, 0, len(detail.Tembusan)),
-		}
-		for _, a := range detail.Attachments {
-			resp.Attachments = append(resp.Attachments, suratAttachmentDTO{
-				ID: a.ID, Role: a.Role, FileName: a.FileName,
-				FileSize: a.FileSize, MimeType: a.MimeType, UploadedAt: a.UploadedAt,
-			})
-		}
-		for _, r := range detail.Predecessors {
-			resp.Predecessors = append(resp.Predecessors, toRefDTO(r))
-		}
-		for _, r := range detail.Successors {
-			resp.Successors = append(resp.Successors, toRefDTO(r))
-		}
-		for _, t := range detail.Tembusan {
-			resp.Tembusan = append(resp.Tembusan, suratTembusanDTO{
-				ID:           t.ID,
-				InstansiID:   t.InstansiID,
-				InstansiNama: t.InstansiNama,
-				ExternalText: t.ExternalText,
-				Urutan:       t.Urutan,
-			})
-		}
-		writeJSON(w, http.StatusOK, resp)
+		writeJSON(w, http.StatusOK, buildSuratDetailDTO(*detail))
 	}
 }
 

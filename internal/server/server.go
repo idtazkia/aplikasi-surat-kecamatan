@@ -34,6 +34,7 @@ type Deps struct {
 	NotificationStore  NotificationStore
 	SyncStore          SyncStore
 	OpLogStore         OpLogStore
+	ReconStore         ReconciliationStore
 	DirektoriStore     DirektoriStore
 	AttachmentRoot  string
 }
@@ -76,6 +77,10 @@ func New(d Deps) http.Handler {
 	mux.Handle("POST /api/notifications/read-all", d.Auth.Middleware(http.HandlerFunc(notificationMarkAllReadHandler(d))))
 	mux.Handle("GET /api/sync/snapshot", d.Auth.Middleware(http.HandlerFunc(syncSnapshotHandler(d))))
 	mux.Handle("POST /api/sync/operations", d.Auth.Middleware(http.HandlerFunc(applyOperationsHandler(d))))
+	mux.Handle("GET /api/reconciliation", d.Auth.Middleware(http.HandlerFunc(reconciliationListHandler(d))))
+	mux.Handle("GET /api/reconciliation/{group_id}", d.Auth.Middleware(http.HandlerFunc(reconciliationDetailHandler(d))))
+	mux.Handle("POST /api/reconciliation/{group_id}/merge", d.Auth.Middleware(http.HandlerFunc(reconciliationMergeHandler(d))))
+	mux.Handle("POST /api/reconciliation/{group_id}/keep-both", d.Auth.Middleware(http.HandlerFunc(reconciliationKeepBothHandler(d))))
 	mux.Handle("GET /api/instansi", d.Auth.Middleware(http.HandlerFunc(instansiSearchHandler(d))))
 	mux.Handle("POST /api/instansi", d.Auth.Middleware(http.HandlerFunc(instansiCreateHandler(d))))
 	mux.Handle("GET /api/klasifikasi", d.Auth.Middleware(http.HandlerFunc(klasifikasiListHandler(d))))

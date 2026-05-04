@@ -221,6 +221,14 @@ import { h } from "vue";
             >
               Dashboard
             </NButton>
+            <NButton
+              size="small"
+              tertiary
+              @click="router.push({ name: 'reconciliation' })"
+              data-testid="nav-reconciliation"
+            >
+              Rekonsiliasi
+            </NButton>
           </NSpace>
           <NSpace align="center">
             <NButton type="primary" size="small" @click="router.push({ name: 'surat-baru' })">

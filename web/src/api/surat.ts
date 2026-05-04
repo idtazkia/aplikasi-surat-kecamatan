@@ -46,6 +46,27 @@ export interface AttachmentVersion {
   uploaded_at: string;
 }
 
+export interface ReconciliationGroup {
+  group_id: string;
+  dedup_key: string;
+  status: "pending" | "merged" | "kept_both";
+  created_at: string;
+  resolved_at?: string;
+  resolved_by?: string;
+  surat_count: number;
+  instansi_nama: string;
+  nomor_surat: string;
+  tanggal_terima?: string;
+}
+
+export interface ReconciliationDetail {
+  group_id: string;
+  dedup_key: string;
+  status: "pending" | "merged" | "kept_both";
+  created_at: string;
+  surats: SuratDetail[];
+}
+
 export interface ThreadNode {
   id: string;
   nomor_surat: string;
@@ -378,6 +399,27 @@ export const notificationApi = {
 
   markAllRead(): Promise<{ status: string }> {
     return apiClient.post<{ status: string }>("/api/notifications/read-all", {});
+  },
+};
+
+export const reconciliationApi = {
+  list(includeResolved = false): Promise<{ items: ReconciliationGroup[] }> {
+    const path = includeResolved ? "/api/reconciliation?include_resolved=true" : "/api/reconciliation";
+    return apiClient.get<{ items: ReconciliationGroup[] }>(path);
+  },
+
+  get(groupID: string): Promise<ReconciliationDetail> {
+    return apiClient.get<ReconciliationDetail>(`/api/reconciliation/${groupID}`);
+  },
+
+  merge(groupID: string, canonicalSuratID: string): Promise<{ status: string }> {
+    return apiClient.post<{ status: string }>(`/api/reconciliation/${groupID}/merge`, {
+      canonical_surat_id: canonicalSuratID,
+    });
+  },
+
+  keepBoth(groupID: string): Promise<{ status: string }> {
+    return apiClient.post<{ status: string }>(`/api/reconciliation/${groupID}/keep-both`, {});
   },
 };
 
