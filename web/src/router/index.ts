@@ -1,5 +1,11 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import { useOfflineStore } from "@/stores/offline";
+
+// Track apakah sync awal sudah dijalankan post-login (per session). Tidak
+// perlu repeat di setiap navigation — store offline punya self-protection
+// (syncing.value flag), tapi mencegah redundant call tetap berguna.
+let syncTriggered = false;
 
 const router = createRouter({
   history: createWebHistory(),
@@ -51,13 +57,25 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const auth = useAuthStore();
-  if (to.meta.public) return true;
+  if (to.meta.public) {
+    if (!auth.accessToken) syncTriggered = false; // reset saat logout
+    return true;
+  }
   if (!auth.accessToken) {
     return { name: "login", query: { next: to.fullPath } };
   }
   const required = to.meta.requireRole as string[] | undefined;
   if (required && !required.some((r) => auth.hasRole(r))) {
     return { name: "surat-list" };
+  }
+  // Trigger sync sekali per session (saat user pertama kali navigate ke
+  // protected route post-login). Async — tidak block navigation.
+  if (!syncTriggered) {
+    syncTriggered = true;
+    const offline = useOfflineStore();
+    if (offline.online) {
+      void offline.sync();
+    }
   }
   return true;
 });

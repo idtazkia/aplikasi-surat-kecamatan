@@ -10,6 +10,7 @@ import type { DataTableColumns } from "naive-ui";
 import { useAuthStore } from "@/stores/auth";
 import { useThemeStore } from "@/stores/theme";
 import { suratApi, type SuratListItem, type ListSuratParams } from "@/api/surat";
+import { db } from "@/offline/db";
 import NotificationBell from "@/components/NotificationBell.vue";
 
 const router = useRouter();
@@ -61,10 +62,61 @@ async function fetchPage(append = false) {
     items.value = append ? [...items.value, ...resp.items] : resp.items;
     nextCursor.value = resp.next_cursor ?? null;
   } catch (e) {
-    message.error("Gagal memuat daftar surat");
-    console.error(e);
+    // Online API gagal — coba fallback ke IndexedDB cache.
+    // Filter & sort di-apply manual (bukan keyset pagination — dataset cache
+    // ukurannya kecil, full table scan acceptable).
+    if (await tryOfflineFallback(append)) {
+      message.warning("Memuat dari cache lokal — koneksi terputus");
+    } else {
+      message.error("Gagal memuat daftar surat");
+      console.error(e);
+    }
   } finally {
     loading.value = false;
+  }
+}
+
+async function tryOfflineFallback(append: boolean): Promise<boolean> {
+  try {
+    let collection = db.surat.orderBy("tanggal_terima").reverse();
+    if (filterJenis.value) {
+      const j = filterJenis.value;
+      collection = collection.filter((s) => s.jenis === j);
+    }
+    if (filterSearch.value.trim()) {
+      const q = filterSearch.value.trim().toLowerCase();
+      collection = collection.filter((s) => s.perihal.toLowerCase().includes(q));
+    }
+    if (filterTanggalRange.value) {
+      const [from, to] = filterTanggalRange.value;
+      const fromStr = new Date(from).toISOString().slice(0, 10);
+      const toStr = new Date(to).toISOString().slice(0, 10);
+      collection = collection.filter(
+        (s) => s.tanggal_surat >= fromStr && s.tanggal_surat <= toStr,
+      );
+    }
+    const cached = await collection.limit(20).toArray();
+    // Adapt CachedSurat ke SuratListItem (compatible by structure).
+    const adapted: SuratListItem[] = cached.map((c) => ({
+      id: c.id,
+      jenis: c.jenis,
+      nomor_surat: c.nomor_surat,
+      perihal: c.perihal,
+      tanggal_surat: c.tanggal_surat,
+      tanggal_terima: c.tanggal_terima,
+      instansi_id: c.instansi_id,
+      instansi_nama: c.instansi_nama,
+      klasifikasi_kode: c.klasifikasi_kode,
+      sifat_kode: c.sifat_kode,
+      access_level: c.access_level,
+      created_at: c.tanggal_surat, // approximation — full created_at tidak di-cache
+    }));
+    items.value = append ? [...items.value, ...adapted] : adapted;
+    nextCursor.value = null; // disable load-more saat offline (no cursor)
+    return adapted.length > 0;
+  } catch (e) {
+    console.error("offline fallback failed:", e);
+    return false;
   }
 }
 

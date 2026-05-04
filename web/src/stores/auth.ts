@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { apiClient } from "@/api/client";
+import { resetCache } from "@/offline/sync";
 
 const STORAGE_KEY = "surat-kec-auth";
 
@@ -63,6 +64,8 @@ export const useAuthStore = defineStore("auth", () => {
     userID.value = "";
     roles.value = [];
     localStorage.removeItem(STORAGE_KEY);
+    // Reset offline cache supaya tidak data leak antar user di shared device.
+    void resetCache().catch((e) => console.error("resetCache on logout:", e));
   }
 
   async function refresh() {

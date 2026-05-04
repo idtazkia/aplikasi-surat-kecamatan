@@ -63,6 +63,7 @@ func main() {
 		KomentarStore:   st,
 		DashboardStore:    st,
 		NotificationStore: st,
+		SyncStore:         st,
 		DirektoriStore:    st,
 		AttachmentRoot:  cfg.AttachmentStoragePath,
 	})
