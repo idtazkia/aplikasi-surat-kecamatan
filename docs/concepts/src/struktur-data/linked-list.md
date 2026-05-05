@@ -8,7 +8,7 @@ fase: [0, 2]
 
 # Linked List
 
-> **Map ke materi kuliah**: [Skenario 1 — Antrian Rekonsiliasi Duplikat](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). Skenario eksplisit menanyakan: "Untuk menyimpan koleksi kasus antrian ini, kamu bisa pakai array atau linked list. Mana yang lebih cocok untuk skenario ini?"
+> **Map ke materi kuliah**: [Skenario 1 — Antrian Rekonsiliasi Duplikat](https://github.com/endymuhardin/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). Skenario eksplisit menanyakan: "Untuk menyimpan koleksi kasus antrian ini, kamu bisa pakai array atau linked list. Mana yang lebih cocok untuk skenario ini?"
 
 ## Teori
 

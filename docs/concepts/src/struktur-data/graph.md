@@ -8,7 +8,7 @@ fase: [0, 2]
 
 # Graph
 
-> **Map ke materi kuliah**: [Skenario 4 — Ketertelusuran Korespondensi Antar-Institusi](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). Surat-surat yang saling membalas dan men-tembuskan = graph dengan multiple parent dan potensial cycle. **Tidak cukup tree** seperti di disposisi internal (Skenario 3).
+> **Map ke materi kuliah**: [Skenario 4 — Ketertelusuran Korespondensi Antar-Institusi](https://github.com/endymuhardin/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). Surat-surat yang saling membalas dan men-tembuskan = graph dengan multiple parent dan potensial cycle. **Tidak cukup tree** seperti di disposisi internal (Skenario 3).
 
 ## Teori
 
@@ -113,7 +113,7 @@ SELECT * FROM thread ORDER BY depth;
 
 ## Bridge ke Materi Kuliah Java
 
-Kelas Java di [`graph/Graph.java`](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/graph/Graph.java) mendemonstrasikan adjacency list di memory. Implementasi tipikal:
+Kelas Java di [`graph/Graph.java`](https://github.com/endymuhardin/materi-kuliah-2025-struktur-data/blob/main/graph/Graph.java) mendemonstrasikan adjacency list di memory. Implementasi tipikal:
 
 ```java
 class Graph {
@@ -170,4 +170,4 @@ In-memory Java cocok untuk **transient computation** (sekali-jalan algoritma). D
 - [CLRS Bab 22 — Elementary Graph Algorithms](https://mitpress.mit.edu/9780262046305/introduction-to-algorithms/)
 - [CLRS Bab 24 — Single-Source Shortest Paths](https://mitpress.mit.edu/9780262046305/introduction-to-algorithms/)
 - [PostgreSQL Recursive Queries](https://www.postgresql.org/docs/current/queries-with.html)
-- Materi kuliah: [graph/Graph.java](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/graph/Graph.java)
+- Materi kuliah: [graph/Graph.java](https://github.com/endymuhardin/materi-kuliah-2025-struktur-data/blob/main/graph/Graph.java)

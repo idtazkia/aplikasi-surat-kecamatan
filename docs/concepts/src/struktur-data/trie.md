@@ -8,7 +8,7 @@ fase: [0, 5]
 
 # Trie (Prefix Tree)
 
-> **Map ke materi kuliah**: [Skenario 6 Bagian A — Autocomplete instansi pengirim](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). "Saat staf mulai mengetik 'Kem...', sistem harus segera menampilkan daftar instansi yang cocok... harus terasa instan (di bawah 50 milidetik) meski ada 500 pilihan."
+> **Map ke materi kuliah**: [Skenario 6 Bagian A — Autocomplete instansi pengirim](https://github.com/endymuhardin/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). "Saat staf mulai mengetik 'Kem...', sistem harus segera menampilkan daftar instansi yang cocok... harus terasa instan (di bawah 50 milidetik) meski ada 500 pilihan."
 
 ## Teori
 

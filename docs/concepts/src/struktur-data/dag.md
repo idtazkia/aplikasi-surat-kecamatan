@@ -8,7 +8,7 @@ fase: [0, 2]
 
 # DAG (Directed Acyclic Graph)
 
-> **Map ke materi kuliah**: [Skenario 4 — Ketertelusuran Korespondensi Antar-Institusi](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). "Apakah mungkin ada siklus (surat A balas surat B, lalu B balas A lagi, lalu A balas lagi)? Kalau iya, bagaimana algoritma penelusuranmu menghindari loop tak terhingga?"
+> **Map ke materi kuliah**: [Skenario 4 — Ketertelusuran Korespondensi Antar-Institusi](https://github.com/endymuhardin/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). "Apakah mungkin ada siklus (surat A balas surat B, lalu B balas A lagi, lalu A balas lagi)? Kalau iya, bagaimana algoritma penelusuranmu menghindari loop tak terhingga?"
 >
 > Lihat juga [Graph](./graph.md) untuk konsep parent yang lebih general (DAG = special case graph + acyclic).
 

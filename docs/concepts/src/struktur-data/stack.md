@@ -8,7 +8,7 @@ fase: [0]
 
 # Stack (LIFO)
 
-> **Map ke materi kuliah**: [Skenario 2 — Undo Edit Metadata](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). "Bu Camat menekan tombol Undo. Sistem harus mengembalikan ke state sebelumnya... Bandingkan dengan skenario 1 — kenapa urutan pengambilannya berbeda?"
+> **Map ke materi kuliah**: [Skenario 2 — Undo Edit Metadata](https://github.com/endymuhardin/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). "Bu Camat menekan tombol Undo. Sistem harus mengembalikan ke state sebelumnya... Bandingkan dengan skenario 1 — kenapa urutan pengambilannya berbeda?"
 
 ## Teori
 

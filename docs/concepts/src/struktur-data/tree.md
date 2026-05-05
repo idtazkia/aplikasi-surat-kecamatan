@@ -8,7 +8,7 @@ fase: [0, 2]
 
 # Tree
 
-> **Map ke materi kuliah**: [Skenario 3 — Disposisi Surat Internal](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). "Bagaimana kamu menyimpan hubungan 'siapa disposisi ke siapa' untuk satu surat?... Camat → Sekcam → Kasi Pemerintahan → Staf Ani → Magang-1." Hierarki single-parent → tree.
+> **Map ke materi kuliah**: [Skenario 3 — Disposisi Surat Internal](https://github.com/endymuhardin/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). "Bagaimana kamu menyimpan hubungan 'siapa disposisi ke siapa' untuk satu surat?... Camat → Sekcam → Kasi Pemerintahan → Staf Ani → Magang-1." Hierarki single-parent → tree.
 >
 > Untuk korespondensi antar-instansi (Skenario 4) yang punya multiple parent + cycle, lihat [Graph](./graph.md).
 

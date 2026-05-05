@@ -11,7 +11,7 @@ fase: [6, 7]
 
 > **Status**: implementasi dashboard real-time di Fase 6 (statistik per periode) atau Fase 7 (jika butuh probabilistic structure). Halaman ini intro pengantar.
 >
-> **Map ke materi kuliah**: [Skenario 7 — Dashboard Monitoring Surat Real-Time](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). "Jumlah surat masuk dalam 1 jam terakhir... 24 jam terakhir... Top 5 pengirim dalam 7 hari... Update cepat, memori sedikit, estimasi cukup."
+> **Map ke materi kuliah**: [Skenario 7 — Dashboard Monitoring Surat Real-Time](https://github.com/endymuhardin/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). "Jumlah surat masuk dalam 1 jam terakhir... 24 jam terakhir... Top 5 pengirim dalam 7 hari... Update cepat, memori sedikit, estimasi cukup."
 
 ## Konteks: Streaming Computation
 
