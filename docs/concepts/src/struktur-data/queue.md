@@ -9,8 +9,8 @@ fase: [0, 4]
 # Queue (FIFO)
 
 > **Map ke materi kuliah**:
-> - [Skenario 1 — Antrian Rekonsiliasi Duplikat](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md): "Yang mana yang dikerjakan duluan? Kenapa urutan itu adil?" — FIFO sebagai alasan keadilan.
-> - [Skenario 5 — Prioritas Surat Urgent](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md): "Bandingkan dengan antrian di skenario 1 — apa bedanya FIFO biasa dengan antrian berdasarkan prioritas?" — lihat juga [Heap & Priority Queue](./heap.md).
+> - [Skenario 1 — Antrian Rekonsiliasi Duplikat](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md): "Yang mana yang dikerjakan duluan? Kenapa urutan itu adil?" — FIFO sebagai alasan keadilan.
+> - [Skenario 5 — Prioritas Surat Urgent](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md): "Bandingkan dengan antrian di skenario 1 — apa bedanya FIFO biasa dengan antrian berdasarkan prioritas?" — lihat juga [Heap & Priority Queue](./heap.md).
 
 ## Teori
 

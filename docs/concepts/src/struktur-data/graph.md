@@ -8,7 +8,7 @@ fase: [0, 2]
 
 # Graph
 
-> **Map ke materi kuliah**: [Skenario 4 — Ketertelusuran Korespondensi Antar-Institusi](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md). Surat-surat yang saling membalas dan men-tembuskan = graph dengan multiple parent dan potensial cycle. **Tidak cukup tree** seperti di disposisi internal (Skenario 3).
+> **Map ke materi kuliah**: [Skenario 4 — Ketertelusuran Korespondensi Antar-Institusi](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). Surat-surat yang saling membalas dan men-tembuskan = graph dengan multiple parent dan potensial cycle. **Tidak cukup tree** seperti di disposisi internal (Skenario 3).
 
 ## Teori
 

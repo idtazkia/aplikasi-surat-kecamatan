@@ -8,7 +8,7 @@ fase: [0, 4]
 
 # Heap & Priority Queue
 
-> **Map ke materi kuliah**: [Skenario 5 — Prioritas Surat Urgent](../../../materi-kuliah-2025-struktur-data/case-study-aplikasi-surat-kecamatan.md). "Bagaimana kamu menyimpan 30 surat tadi supaya Camat selalu bisa ambil yang paling urgent dengan cepat?... Kalau pakai array biasa lalu sort tiap kali ambil, apa kelemahannya kalau surat baru datang terus?"
+> **Map ke materi kuliah**: [Skenario 5 — Prioritas Surat Urgent](https://github.com/idtazkia/materi-kuliah-2025-struktur-data/blob/main/case-study-aplikasi-surat-kecamatan.md). "Bagaimana kamu menyimpan 30 surat tadi supaya Camat selalu bisa ambil yang paling urgent dengan cepat?... Kalau pakai array biasa lalu sort tiap kali ambil, apa kelemahannya kalau surat baru datang terus?"
 
 ## Teori
 
