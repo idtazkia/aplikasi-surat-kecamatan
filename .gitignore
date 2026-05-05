@@ -36,6 +36,9 @@ playwright-report/
 /docs/concepts/book/
 /docs/concepts/src/concept-links.json
 
+# User manual build output (markdown + screenshots tetap committed)
+/docs/user-manual/book/
+
 # Environment & secrets
 .env
 .env.local

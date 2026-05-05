@@ -140,13 +140,27 @@ concepts-build: concepts-inject concepts-emit
 concepts-serve: concepts-inject concepts-emit
 	mdbook serve docs/concepts
 
+## user-manual-capture: jalankan Playwright headed untuk capture screenshot
+##                     Output ke docs/user-manual/src/screenshots/
+user-manual-capture:
+	cd web && npx playwright test --config=playwright.manual.config.ts
+
+## user-manual-build: build mdBook user manual ke HTML static
+user-manual-build:
+	mdbook build docs/user-manual
+
+## user-manual-serve: preview user manual locally (http://localhost:3000)
+user-manual-serve:
+	mdbook serve docs/user-manual
+
 ## clean: hapus build artifacts
 clean:
-	rm -rf bin/ dist/ build/ docs/concepts/book/ coverage.txt coverage.html
+	rm -rf bin/ dist/ build/ docs/concepts/book/ docs/user-manual/book/ coverage.txt coverage.html
 	rm -f docs/concepts/src/concept-links.json
 
 .PHONY: help install-tools migrate-up migrate-down migrate-status seed-demo reset-demo sqlc \
         build dev test coverage lint \
         web-install web-dev web-build web-test web-lint \
         concepts-inject concepts-emit concepts-lint concepts-build concepts-serve \
+        user-manual-capture user-manual-build user-manual-serve \
         clean

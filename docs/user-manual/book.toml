@@ -1,0 +1,21 @@
+[book]
+title = "Panduan Pengguna — Aplikasi Surat Kecamatan"
+authors = ["STMIK Tazkia"]
+language = "id"
+multilingual = false
+src = "src"
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/idtazkia/aplikasi-surat-kecamatan"
+edit-url-template = "https://github.com/idtazkia/aplikasi-surat-kecamatan/edit/main/docs/user-manual/{path}"
+site-url = "/surat-kec/"
+
+[output.html.fold]
+enable = true
+level = 1
+
+[output.html.search]
+enable = true
+limit-results = 30
