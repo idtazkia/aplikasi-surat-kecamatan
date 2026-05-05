@@ -10,7 +10,7 @@ default-theme = "light"
 preferred-dark-theme = "navy"
 git-repository-url = "https://github.com/idtazkia/aplikasi-surat-kecamatan"
 edit-url-template = "https://github.com/idtazkia/aplikasi-surat-kecamatan/edit/main/docs/user-manual/{path}"
-site-url = "/surat-kec/"
+site-url = "/aplikasi-surat-kecamatan/manual/"
 
 [output.html.fold]
 enable = true

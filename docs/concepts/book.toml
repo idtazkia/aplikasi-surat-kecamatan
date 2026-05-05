@@ -10,6 +10,7 @@ default-theme = "light"
 preferred-dark-theme = "navy"
 git-repository-url = "https://github.com/idtazkia/aplikasi-surat-kecamatan"
 edit-url-template = "https://github.com/idtazkia/aplikasi-surat-kecamatan/edit/main/docs/concepts/{path}"
+site-url = "/aplikasi-surat-kecamatan/concepts/"
 mathjax-support = false
 copy-fonts = true
 no-section-label = false

@@ -1,0 +1,177 @@
+name: pages
+
+# Combined GitHub Pages deploy untuk concept catalog + user manual.
+#
+# Output struktur ke single dist/:
+#   /                → landing page (link ke 2 sub-site)
+#   /concepts/       → mdBook concept catalog (untuk mahasiswa)
+#   /manual/         → mdBook user manual (untuk staf/camat)
+#
+# Single deploy artifact menghindari konflik artifact "github-pages" antar
+# workflow. GitHub Pages hanya support satu site per repo.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/concepts/**"
+      - "docs/user-manual/**"
+      - "internal/**"
+      - "db/**"
+      - "tools/concept-links/**"
+      - "web/e2e/manual/**"
+      - "web/playwright.manual.config.ts"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  capture-screenshots:
+    name: Capture User Manual Screenshots
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install goose
+        run: go install github.com/pressly/goose/v3/cmd/goose@v3.22.1
+
+      - name: Install web deps
+        run: cd web && npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: cd web && npx playwright install --with-deps chromium
+
+      - name: Capture screenshots
+        run: cd web && npx playwright test --config=playwright.manual.config.ts
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-manual-screenshots
+          path: docs/user-manual/src/screenshots/
+          retention-days: 1
+
+  build:
+    name: Build Pages Site
+    needs: capture-screenshots
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # untuk concept-links resolve commit SHA
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: "0.4.40"
+
+      - name: Download fresh screenshots
+        uses: actions/download-artifact@v4
+        with:
+          name: user-manual-screenshots
+          path: docs/user-manual/src/screenshots/
+
+      - name: Inject permalinks ke concept pages
+        run: go run ./tools/concept-links inject
+
+      - name: Build concept catalog
+        run: mdbook build docs/concepts
+
+      - name: Build user manual
+        run: mdbook build docs/user-manual
+
+      - name: Compose Pages site (root + 2 subdir)
+        run: |
+          mkdir -p dist
+          cp -r docs/concepts/book dist/concepts
+          cp -r docs/user-manual/book dist/manual
+          cat > dist/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="id">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Aplikasi Surat Kecamatan — Dokumentasi</title>
+            <style>
+              body { font-family: system-ui, sans-serif; max-width: 720px; margin: 4rem auto; padding: 0 1.5rem; line-height: 1.6; color: #222; }
+              h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+              .subtitle { color: #666; margin-bottom: 2.5rem; }
+              .card { display: block; padding: 1.5rem; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 1rem; text-decoration: none; color: inherit; transition: border-color 0.15s; }
+              .card:hover { border-color: #2080f0; }
+              .card h2 { margin: 0 0 0.5rem; font-size: 1.25rem; color: #2080f0; }
+              .card p { margin: 0; color: #555; }
+              footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #eee; color: #888; font-size: 0.875rem; }
+            </style>
+          </head>
+          <body>
+            <h1>Aplikasi Surat Kecamatan</h1>
+            <p class="subtitle">Manajemen surat masuk/keluar untuk kantor kecamatan — proyek PkM STMIK Tazkia.</p>
+
+            <a href="manual/" class="card">
+              <h2>Panduan Pengguna</h2>
+              <p>Tutorial step-by-step untuk staf, camat, administrator, dan auditor. Dilengkapi screenshot dan FAQ.</p>
+            </a>
+
+            <a href="concepts/" class="card">
+              <h2>Concept Catalog (untuk Mahasiswa)</h2>
+              <p>Dokumentasi konsep matkul Struktur Data, Algoritma, Basis Data yang dipakai di aplikasi — dengan link ke source code.</p>
+            </a>
+
+            <footer>
+              Repo: <a href="https://github.com/idtazkia/aplikasi-surat-kecamatan">github.com/idtazkia/aplikasi-surat-kecamatan</a>
+            </footer>
+          </body>
+          </html>
+          EOF
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
