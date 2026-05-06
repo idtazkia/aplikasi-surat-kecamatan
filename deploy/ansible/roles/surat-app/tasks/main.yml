@@ -23,21 +23,22 @@
   when: not server_binary.stat.exists
 
 - name: Sync binary ke tenant
-  ansible.posix.synchronize:
+  ansible.builtin.copy:
     src: "{{ playbook_dir }}/../../bin/server"
     dest: "{{ app_dir }}/bin/server"
-    rsync_opts:
-      - "--chown={{ app_user }}:{{ app_user }}"
-      - "--chmod=F0755"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
   notify: restart surat
 
 - name: Sync schema migrations ke tenant
-  ansible.posix.synchronize:
+  ansible.builtin.copy:
     src: "{{ playbook_dir }}/../../db/migrations/schema/"
     dest: "{{ app_dir }}/migrations/"
-    delete: true
-    rsync_opts:
-      - "--chown={{ app_user }}:{{ app_user }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0644"
+    directory_mode: "0755"
 
 - name: Render env file
   ansible.builtin.template:

@@ -21,14 +21,21 @@
     msg: "web/dist/index.html tidak ada setelah make web-build"
   when: not dist_index.stat.exists
 
+- name: Clear stale dist artifacts (preserve config.json)
+  ansible.builtin.shell:
+    cmd: |
+      find {{ app_dir }}/web -mindepth 1 -maxdepth 1 ! -name 'config.json' -exec rm -rf {} +
+    executable: /bin/bash
+  changed_when: true
+
 - name: Sync dist ke tenant web/
-  ansible.posix.synchronize:
+  ansible.builtin.copy:
     src: "{{ playbook_dir }}/../../web/dist/"
     dest: "{{ app_dir }}/web/"
-    delete: true
-    rsync_opts:
-      - "--chown={{ app_user }}:{{ app_user }}"
-      - "--chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0644"
+    directory_mode: "0755"
 
 - name: Render runtime config.json
   ansible.builtin.template:
