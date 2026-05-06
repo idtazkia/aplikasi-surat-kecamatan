@@ -51,6 +51,14 @@ services:
       STUDENT_MODE_ENABLED: ${STUDENT_MODE_ENABLED:-false}
       APPLY_DEMO_SEED: ${APPLY_DEMO_SEED:-true}
       ATTACHMENT_STORAGE_PATH: /var/lib/surat/attachments
+      # Tenant config — di-serve via GET /api/config untuk frontend.
+      # Override per-tenant via .env atau Ansible group_vars saat deploy.
+      TENANT_APP_NAME: ${TENANT_APP_NAME:-Aplikasi Surat Kecamatan}
+      TENANT_INSTITUTION_NAME: ${TENANT_INSTITUTION_NAME:-Kantor Kecamatan Demo}
+      TENANT_BRANDING_PRIMARY: ${TENANT_BRANDING_PRIMARY:-#2080f0}
+      TENANT_BRANDING_PRIMARY_HOVER: ${TENANT_BRANDING_PRIMARY_HOVER:-#4098fc}
+      TENANT_BRANDING_ACCENT: ${TENANT_BRANDING_ACCENT:-#36ad6a}
+      TENANT_BRANDING_LOGO_URL: ${TENANT_BRANDING_LOGO_URL:-}
     volumes:
       - attachments:/var/lib/surat/attachments
     ports:

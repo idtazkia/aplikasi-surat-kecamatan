@@ -85,6 +85,11 @@ async function globalSetup(): Promise<() => Promise<void>> {
       LOG_LEVEL: "warn",
       STUDENT_MODE_ENABLED: "true",
       ATTACHMENT_STORAGE_PATH: path.join(REPO_ROOT, "tmp", "e2e-attachments"),
+      TENANT_APP_NAME: "Aplikasi Surat Kecamatan",
+      TENANT_INSTITUTION_NAME: "Kantor Kecamatan Demo",
+      TENANT_BRANDING_PRIMARY: "#2080f0",
+      TENANT_BRANDING_PRIMARY_HOVER: "#4098fc",
+      TENANT_BRANDING_ACCENT: "#36ad6a",
     },
     stdio: ["ignore", "inherit", "inherit"],
   });

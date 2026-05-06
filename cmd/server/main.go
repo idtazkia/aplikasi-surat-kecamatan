@@ -70,6 +70,7 @@ func main() {
 		FTSStore:          st,
 		DirektoriStore:    st,
 		StudentMode:       cfg.StudentMode,
+		Tenant:            cfg.Tenant,
 		AttachmentRoot:  cfg.AttachmentStoragePath,
 	})
 

@@ -3,11 +3,13 @@ import { ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { NCard, NForm, NFormItem, NInput, NButton, NSpace, useMessage } from "naive-ui";
 import { useAuthStore } from "@/stores/auth";
+import { useConfigStore } from "@/stores/config";
 import { ApiError } from "@/api/client";
 
 const router = useRouter();
 const route = useRoute();
 const auth = useAuthStore();
+const configStore = useConfigStore();
 const message = useMessage();
 
 const username = ref("");
@@ -38,7 +40,7 @@ async function handleSubmit() {
 
 <template>
   <div class="login-wrapper">
-    <NCard title="Aplikasi Surat Kecamatan" class="login-card">
+    <NCard :title="configStore.config.appName" class="login-card">
       <NForm @submit.prevent="handleSubmit">
         <NFormItem label="Username">
           <NInput v-model:value="username" placeholder="staf1 / camat / admin / auditor" />

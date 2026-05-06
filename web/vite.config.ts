@@ -28,6 +28,13 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
+            // Tenant config: NEVER cache. Branding/identity bisa berubah saat
+            // tenant re-deploy, dan SW yang shared antar tenant (kalau dist/
+            // di-host CDN) tidak boleh leak config tenant lain.
+            urlPattern: /\/api\/config/,
+            handler: "NetworkOnly",
+          },
+          {
             // PDF endpoints: NEVER cache. Sesuai mandate arsitektur — PDF
             // tetap online-only, hindari fill IndexedDB / Cache Storage.
             urlPattern: ({ url }) =>

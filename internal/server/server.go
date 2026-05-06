@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/idtazkia/aplikasi-surat-kecamatan/internal/auth"
+	"github.com/idtazkia/aplikasi-surat-kecamatan/internal/config"
 	"github.com/idtazkia/aplikasi-surat-kecamatan/internal/store"
 )
 
@@ -40,6 +41,7 @@ type Deps struct {
 	DirektoriStore     DirektoriStore
 	AttachmentRoot  string
 	StudentMode     bool // env STUDENT_MODE_ENABLED — gate untuk _edu block injection
+	Tenant          config.TenantConfig
 }
 
 // New membangun *http.ServeMux dengan semua route ter-register.
@@ -47,6 +49,9 @@ func New(d Deps) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", healthHandler(d))
+	// Public — tidak butuh auth karena frontend fetch ini sebelum login,
+	// dan content sama untuk semua user dalam satu tenant.
+	mux.HandleFunc("GET /api/config", tenantConfigHandler(d.Tenant))
 	mux.HandleFunc("POST /api/auth/login", loginHandler(d))
 	mux.HandleFunc("POST /api/auth/refresh", refreshHandler(d))
 

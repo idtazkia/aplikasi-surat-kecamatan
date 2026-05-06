@@ -5,10 +5,12 @@ import { NLayout, NLayoutHeader, NLayoutContent, NSpace, NButton, NText, NSwitch
 import { useAuthStore } from "@/stores/auth";
 import { useThemeStore } from "@/stores/theme";
 import { useEduPanelStore } from "@/stores/eduPanel";
+import { useConfigStore } from "@/stores/config";
 
 const auth = useAuthStore();
 const themeStore = useThemeStore();
 const eduPanel = useEduPanelStore();
+const configStore = useConfigStore();
 const router = useRouter();
 
 function logout() {
@@ -29,7 +31,7 @@ onMounted(() => {
   <NLayout>
     <NLayoutHeader bordered style="padding: 12px 24px">
       <NSpace justify="space-between" align="center">
-        <NText strong>Aplikasi Surat Kecamatan</NText>
+        <NText strong>{{ configStore.config.appName }}</NText>
         <NSpace align="center">
           <NText depth="3">User: {{ auth.userID }} ({{ auth.roles.join(", ") }})</NText>
           <NSwitch v-model:value="themeStore.dark" size="small">

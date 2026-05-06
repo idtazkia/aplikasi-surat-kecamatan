@@ -6,12 +6,14 @@ import { useThemeStore } from "@/stores/theme";
 import { useEduPanelStore } from "@/stores/eduPanel";
 import { useAuthStore } from "@/stores/auth";
 import { useOfflineStore } from "@/stores/offline";
+import { useConfigStore } from "@/stores/config";
 import StudentDrawer from "@/components/StudentDrawer.vue";
 
 const themeStore = useThemeStore();
 const eduPanel = useEduPanelStore();
 const auth = useAuthStore();
 const offline = useOfflineStore();
+const configStore = useConfigStore();
 const theme = computed(() => (themeStore.dark ? darkTheme : null));
 
 onMounted(() => {
@@ -45,7 +47,7 @@ watch(
 </script>
 
 <template>
-  <NConfigProvider :theme="theme" :locale="idID" :date-locale="dateIdID">
+  <NConfigProvider :theme="theme" :theme-overrides="configStore.themeOverrides" :locale="idID" :date-locale="dateIdID">
     <NLoadingBarProvider>
       <NDialogProvider>
         <NMessageProvider>

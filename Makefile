@@ -72,7 +72,19 @@ build:
 build-linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -ldflags "-s -w" -o bin/server-linux-amd64 ./cmd/server
 
-## dev: run backend dengan auto-reload (butuh air atau go run loop)
+## dev: run backend lokal. Default env vars di-set lewat `export` directive
+##      di-bawah supaya `make dev` jalan tanpa konfigurasi manual; override
+##      via shell env atau .env (export ...) untuk production-like testing.
+dev: export JWT_SECRET ?= dev-secret-32-bytes-padding-xxxx
+dev: export LISTEN_ADDR ?= 127.0.0.1:8080
+dev: export LOG_LEVEL ?= info
+dev: export ATTACHMENT_STORAGE_PATH ?= ./tmp/attachments
+dev: export STUDENT_MODE_ENABLED ?= false
+dev: export TENANT_APP_NAME ?= Aplikasi Surat Kecamatan
+dev: export TENANT_INSTITUTION_NAME ?= Kantor Kecamatan Demo
+dev: export TENANT_BRANDING_PRIMARY ?= \#2080f0
+dev: export TENANT_BRANDING_PRIMARY_HOVER ?= \#4098fc
+dev: export TENANT_BRANDING_ACCENT ?= \#36ad6a
 dev:
 	$(GO) run ./cmd/server
 
