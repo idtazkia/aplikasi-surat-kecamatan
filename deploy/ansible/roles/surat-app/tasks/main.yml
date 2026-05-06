@@ -2,9 +2,9 @@
 # Build binary di laptop (delegate_to: localhost), sync ke tenant, render env
 # dan systemd unit, run goose migrations, start service.
 
-- name: Build server binary di laptop
+- name: Cross-compile server binary untuk Linux amd64 di laptop
   ansible.builtin.command:
-    cmd: make build
+    cmd: make build-linux
     chdir: "{{ playbook_dir }}/../.."
   delegate_to: localhost
   become: false
@@ -12,19 +12,19 @@
 
 - name: Verify build artifact ada
   ansible.builtin.stat:
-    path: "{{ playbook_dir }}/../../bin/server"
+    path: "{{ playbook_dir }}/../../bin/server-linux-amd64"
   delegate_to: localhost
   become: false
   register: server_binary
 
 - name: Fail kalau binary tidak ter-build
   ansible.builtin.fail:
-    msg: "bin/server tidak ada setelah make build"
+    msg: "bin/server-linux-amd64 tidak ada setelah make build-linux"
   when: not server_binary.stat.exists
 
 - name: Sync binary ke tenant
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../../bin/server"
+    src: "{{ playbook_dir }}/../../bin/server-linux-amd64"
     dest: "{{ app_dir }}/bin/server"
     owner: "{{ app_user }}"
     group: "{{ app_user }}"

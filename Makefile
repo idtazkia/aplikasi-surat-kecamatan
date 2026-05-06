@@ -68,6 +68,10 @@ sqlc:
 build:
 	$(GO) build -o bin/server ./cmd/server
 
+## build-linux: cross-compile static binary untuk Linux amd64 (deployment)
+build-linux:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO) build -ldflags "-s -w" -o bin/server-linux-amd64 ./cmd/server
+
 ## dev: run backend dengan auto-reload (butuh air atau go run loop)
 dev:
 	$(GO) run ./cmd/server
