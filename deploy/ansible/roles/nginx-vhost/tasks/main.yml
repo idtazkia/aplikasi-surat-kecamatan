@@ -1,0 +1,45 @@
+---
+# Render nginx vhost. Otomatis pilih HTTP-only atau HTTPS template
+# berdasarkan keberadaan cert di /etc/letsencrypt/live/{{ app_domain }}/.
+
+- name: Cek apakah TLS cert sudah ter-issue
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ app_domain }}/fullchain.pem"
+  register: tls_cert
+
+- name: Render nginx vhost (HTTPS — cert ada)
+  ansible.builtin.template:
+    src: vhost-https.conf.j2
+    dest: "/etc/nginx/sites-available/surat-{{ tenant_id }}.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  when:
+    - tls_enabled | bool
+    - tls_cert.stat.exists
+  notify: reload nginx
+
+- name: Render nginx vhost (HTTP-only — pre-cert atau tls_enabled=false)
+  ansible.builtin.template:
+    src: vhost-http.conf.j2
+    dest: "/etc/nginx/sites-available/surat-{{ tenant_id }}.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  when: not (tls_enabled | bool) or not tls_cert.stat.exists
+  notify: reload nginx
+
+- name: Enable vhost
+  ansible.builtin.file:
+    src: "/etc/nginx/sites-available/surat-{{ tenant_id }}.conf"
+    dest: "/etc/nginx/sites-enabled/surat-{{ tenant_id }}.conf"
+    state: link
+  notify: reload nginx
+
+- name: Test nginx config
+  ansible.builtin.command:
+    cmd: nginx -t
+  changed_when: false
+
+- name: Flush handlers (apply nginx reload sebelum lanjut)
+  ansible.builtin.meta: flush_handlers

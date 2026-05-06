@@ -1,0 +1,56 @@
+# Surat tenant: {{ tenant_id }} — HTTP-only vhost.
+# Berlaku sebelum certbot issue cert (untuk ACME challenge) atau saat tls_enabled=false.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ app_domain }};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/letsencrypt;
+    }
+
+    root {{ app_dir }}/web;
+    index index.html;
+    client_max_body_size 25m;
+
+    location /api/ {
+        proxy_pass         http://127.0.0.1:{{ app_port }};
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+        proxy_send_timeout 60s;
+    }
+
+    location = /healthz {
+        proxy_pass http://127.0.0.1:{{ app_port }}/healthz;
+        access_log off;
+    }
+
+    location = /sw.js {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+        add_header Expires "0";
+        try_files $uri =404;
+    }
+
+    location = /config.json {
+        add_header Cache-Control "no-store";
+        try_files $uri =404;
+    }
+
+    location ~* ^/assets/.*\.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    access_log /var/log/nginx/surat-{{ tenant_id }}.access.log;
+    error_log  /var/log/nginx/surat-{{ tenant_id }}.error.log;
+}

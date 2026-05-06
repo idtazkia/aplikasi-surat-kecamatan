@@ -1,0 +1,64 @@
+---
+# Validate semua required vars terisi dan tidak masih placeholder.
+# Di-import dari setiap playbook lewat `roles: [validate]` atau `import_role`.
+# Tidak ada default — fail loudly kalau ada placeholder.
+
+- name: Validate tenant identity vars
+  ansible.builtin.fail:
+    msg: "{{ item.name }} undefined atau masih placeholder"
+  when: vars[item.name] is not defined or vars[item.name] is none or vars[item.name] | string == item.placeholder
+  loop:
+    - { name: tenant_id, placeholder: CHANGE_THIS_TENANT_ID }
+    - { name: app_user, placeholder: CHANGE_THIS_APP_USER }
+    - { name: app_dir, placeholder: CHANGE_THIS_APP_DIR }
+    - { name: app_port, placeholder: CHANGE_THIS_APP_PORT }
+    - { name: app_domain, placeholder: CHANGE_THIS_APP_DOMAIN }
+    - { name: jwt_secret, placeholder: CHANGE_THIS_JWT_SECRET }
+    - { name: db_name, placeholder: CHANGE_THIS_DB_NAME }
+    - { name: db_user, placeholder: CHANGE_THIS_DB_USER }
+    - { name: db_password, placeholder: CHANGE_THIS_DB_PASSWORD }
+    - { name: brand_app_name, placeholder: CHANGE_THIS_APP_NAME }
+    - { name: brand_institution, placeholder: CHANGE_THIS_INSTITUTION_NAME }
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Validate tenant_id format
+  ansible.builtin.fail:
+    msg: "tenant_id '{{ tenant_id }}' invalid — hanya [a-z0-9-], ≤24 char"
+  when: not (tenant_id | regex_search('^[a-z0-9-]+$')) or (tenant_id | length) > 24
+
+- name: Validate app_user length
+  ansible.builtin.fail:
+    msg: "app_user '{{ app_user }}' terlalu panjang (>31 char, melebihi limit Linux username)"
+  when: (app_user | length) > 31
+
+- name: Validate jwt_secret strength
+  ansible.builtin.fail:
+    msg: "jwt_secret terlalu pendek (<32 char). Generate: openssl rand -base64 32"
+  when: (jwt_secret | length) < 32
+
+- name: Validate app_port range
+  ansible.builtin.fail:
+    msg: "app_port '{{ app_port }}' di luar range 1024–65535"
+  when: (app_port | int) < 1024 or (app_port | int) > 65535
+
+- name: Validate TLS vars
+  ansible.builtin.fail:
+    msg: "tls_email undefined atau masih placeholder (tls_enabled=true)"
+  when:
+    - tls_enabled | bool
+    - tls_email is not defined or tls_email | string == 'CHANGE_THIS_TLS_EMAIL'
+
+- name: Validate backup vars
+  ansible.builtin.fail:
+    msg: "backup_rclone_remote undefined atau masih placeholder (backup_enabled=true)"
+  when:
+    - backup_enabled | bool
+    - backup_rclone_remote is not defined or backup_rclone_remote | string == 'CHANGE_THIS_BACKUP_REMOTE'
+
+- name: Validate backup verify vars
+  ansible.builtin.fail:
+    msg: "backup_verify_staging_db_url undefined atau masih placeholder (backup_verify_enabled=true)"
+  when:
+    - backup_verify_enabled | bool
+    - backup_verify_staging_db_url is not defined or backup_verify_staging_db_url | string == 'CHANGE_THIS_STAGING_DB_URL'

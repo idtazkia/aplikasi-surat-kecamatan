@@ -1,0 +1,35 @@
+---
+# Buat role + database tenant di PostgreSQL cluster yang sudah running.
+# Pakai local Unix socket sebagai superuser `postgres`. Kalau cluster
+# di-host beda dari ansible_host, role ini perlu di-adjust.
+
+- name: Ensure tenant role exists
+  community.postgresql.postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    encrypted: true
+    state: present
+    login_unix_socket: /var/run/postgresql
+  become_user: postgres
+  no_log: true
+
+- name: Ensure tenant database exists
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+    owner: "{{ db_user }}"
+    encoding: UTF8
+    template: template0
+    state: present
+    login_unix_socket: /var/run/postgresql
+  become_user: postgres
+
+- name: Grant tenant role full access to schema public
+  community.postgresql.postgresql_privs:
+    database: "{{ db_name }}"
+    type: schema
+    objs: public
+    roles: "{{ db_user }}"
+    privs: ALL
+    state: present
+    login_unix_socket: /var/run/postgresql
+  become_user: postgres

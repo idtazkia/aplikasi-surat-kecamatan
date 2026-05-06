@@ -1,0 +1,33 @@
+---
+# Fast-path update: rebuild artifacts di laptop, sync binary + dist, restart service.
+# Tidak menyentuh nginx/tls/postgres/user. Untuk perubahan struktural, jalankan site.yml.
+
+- name: Update Surat Kecamatan tenant
+  hosts: surat
+  become: true
+
+  pre_tasks:
+    - name: Validate required vars
+      ansible.builtin.import_role:
+        name: validate
+
+  roles:
+    - surat-app
+    - surat-frontend
+
+  post_tasks:
+    - name: Smoke test backend health
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}/healthz"
+        status_code: 200
+      register: health_check
+      retries: 12
+      delay: 5
+      until: health_check.status == 200
+
+    - name: Smoke test public domain
+      ansible.builtin.uri:
+        url: "https://{{ app_domain }}/healthz"
+        status_code: 200
+        validate_certs: true
+      when: tls_enabled | bool

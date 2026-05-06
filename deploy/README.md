@@ -1,105 +1,118 @@
 # Deployment
 
-Setup di VPS Biznet Gio.
+Ansible-based provisioning untuk multi-tenant deployment. Satu tenant = satu kecamatan,
+masing-masing dapat instance app + database terpisah, bisa shared VPS atau dedicated VPS.
 
-## Prerequisites
+Konfigurasi per-tenant (inventory + secrets) tinggal di repo terpisah:
+**[idtazkia/aplikasi-surat-kecamatan-deploy](https://github.com/idtazkia/aplikasi-surat-kecamatan-deploy)** (private).
 
-- Ubuntu/Debian server dengan systemd
-- PostgreSQL 14+ terpasang dan running
-- nginx terpasang
-- Go 1.22+ untuk install tooling (goose) di server
-- rclone untuk backup ke object storage
+Repo ini hanya berisi playbook + role generic, tidak ada nama tenant atau secret apa pun.
 
-## Initial Setup
+## Struktur
 
-```sh
-# 1. Clone repo (atau scp build artifact)
-sudo git clone https://github.com/idtazkia/aplikasi-surat-kecamatan.git /opt/aplikasi-surat-kecamatan-src
-cd /opt/aplikasi-surat-kecamatan-src
-
-# 2. Initial setup script (create user, dirs, env template, systemd unit)
-sudo bash deploy/scripts/install.sh
-
-# 3. Edit env dengan credentials asli
-sudo nano /etc/aplikasi-surat-kecamatan/env
-
-# 4. Setup PostgreSQL user + DB
-sudo -u postgres psql <<EOF
-CREATE USER surat WITH PASSWORD 'GANTI_INI';
-CREATE DATABASE surat OWNER surat;
-GRANT ALL PRIVILEGES ON DATABASE surat TO surat;
-EOF
-
-# 5. Install goose, apply schema migration
-go install github.com/pressly/goose/v3/cmd/goose@v3.22.1
-export DATABASE_URL='postgres://surat:GANTI_INI@localhost:5432/surat?sslmode=disable'
-sudo -E bash deploy/scripts/migrate.sh
-
-# 6. Build server binary
-go build -o /opt/aplikasi-surat-kecamatan/server ./cmd/server
-sudo chown surat:surat /opt/aplikasi-surat-kecamatan/server
-
-# 7. Build frontend
-cd web && npm ci && npm run build
-sudo cp -r dist/* /var/www/aplikasi-surat-kecamatan/
-
-# 8. Setup TLS
-sudo bash deploy/scripts/setup-tls.sh surat.example.com
-
-# 9. Apply nginx config (edit server_name dulu)
-sudo cp deploy/nginx/aplikasi-surat-kecamatan.conf /etc/nginx/sites-available/
-sudo ln -s /etc/nginx/sites-available/aplikasi-surat-kecamatan.conf /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-
-# 10. Start service
-sudo systemctl start aplikasi-surat-kecamatan
-sudo systemctl status aplikasi-surat-kecamatan
-
-# 11. Health check
-curl https://surat.example.com/healthz
+```
+deploy/ansible/
+├── ansible.cfg
+├── requirements.yml                # collections deps (community.postgresql, ansible.posix)
+├── inventory.ini.example           # template inventory
+├── group_vars/all.yml.example      # template per-tenant config (semua var REQUIRED)
+├── site.yml                        # full provision satu tenant
+├── deploy.yml                      # update binary + dist (rolling, fast)
+├── setup-ssl.yml                   # issue Let's Encrypt cert via certbot
+├── backup.yml                      # on-demand backup
+├── teardown.yml                    # hapus tenant (DESTRUCTIVE, butuh -e confirm=YES)
+└── roles/
+    ├── validate           # pre_tasks gate semua var WAJIB terisi (no fallback)
+    ├── host-bootstrap     # apt: nginx, postgresql-client, certbot, rclone, goose
+    ├── tenant-user        # Linux user surat-<tenant>, /opt/surat/<tenant>/ skeleton
+    ├── postgres-tenant    # CREATE ROLE + DATABASE di cluster yang sudah jalan
+    ├── surat-app          # build binary di laptop, sync, env, systemd, goose migrate
+    ├── surat-frontend     # build dist di laptop, sync, render config.json
+    ├── nginx-vhost        # vhost template (auto HTTP→HTTPS sesuai cert state)
+    ├── surat-tls          # certbot --nginx (certonly), re-render vhost ke HTTPS
+    └── surat-backup       # pg_dump + rclone, daily cron + opsional weekly verify
 ```
 
-## Backup Setup
+## Asumsi host
+
+- Ubuntu/Debian dengan systemd, sudo untuk `ansible_user`
+- PostgreSQL **server cluster** sudah jalan di host (Ansible tidak menginstall server,
+  hanya client + role/db tenant). Cluster version harus match `postgresql_client_version`.
+- nginx + cron sudah ada (kalau belum, `host-bootstrap` akan apt-install)
+- Untuk tenant TLS: certbot bisa reach `app_domain` lewat HTTP-01 (DNS A-record sudah
+  point ke `ansible_host`, port 80 reachable)
+
+## Konvensi tenant
+
+- `tenant_id`: slug `[a-z0-9-]+`, ≤24 char (mis. `kec-bogor-tengah`, `stmik-tazkia-test`)
+- `app_user`: Linux system user `surat-<tenant_id>`, no shell login, ≤31 char total
+- `app_dir`: `/opt/surat/<tenant_id>/` berisi `bin/`, `web/`, `etc/`, `data/`,
+  `migrations/`, `backup/`, `log/`
+- `systemd_unit`: `surat-<tenant_id>.service`
+- `app_port`: TCP loopback unik per tenant kalau shared VPS
+- nginx vhost: `surat-<tenant_id>.conf`, log `/var/log/nginx/surat-<tenant_id>.{access,error}.log`
+- DB: `db_name`/`db_user` ditentukan operator (recommended pattern: `surat_<tenant_id_underscore>`)
+
+## Quick start
 
 ```sh
-# 1. Setup rclone dengan Biznet Gio NEO Object Storage (S3-compatible)
-rclone config
-# Pilih: New remote, name 'backup', type 's3', provider 'Other',
-#         endpoint 'https://s3-jakarta.biznetcloud.com' atau region yang dipakai
+# 1. Clone deploy repo (sibling dari app repo)
+git clone git@github.com:idtazkia/aplikasi-surat-kecamatan-deploy.git
+cd aplikasi-surat-kecamatan-deploy
 
-# 2. Test rclone
-rclone ls backup:aplikasi-surat-backup
+# 2. Install Ansible deps (sekali per laptop)
+ansible-galaxy install -r ../aplikasi-surat-kecamatan/deploy/ansible/requirements.yml
 
-# 3. Setup cron untuk daily backup
-sudo crontab -e
-# Tambah:
-# 0 2 * * * /opt/aplikasi-surat-kecamatan-src/deploy/scripts/backup.sh > /var/log/aplikasi-surat-backup.log 2>&1
+# 3. Provision tenant (full setup)
+./deploy.sh stmik-tazkia-test site.yml
 
-# 4. Setup cron untuk weekly verify (Senin pagi)
-# 0 6 * * 1 STAGING_DATABASE_URL='postgres://...' /opt/aplikasi-surat-kecamatan-src/deploy/scripts/verify-backup.sh > /var/log/aplikasi-surat-verify.log 2>&1
+# 4. Update binary + dist (fast path, setelah ada perubahan code)
+./deploy.sh stmik-tazkia-test deploy.yml
+
+# 5. Issue/renew TLS cert
+./deploy.sh stmik-tazkia-test setup-ssl.yml
+
+# 6. Manual backup
+./deploy.sh stmik-tazkia-test backup.yml
+
+# 7. Teardown (DESTRUCTIVE)
+./deploy.sh stmik-tazkia-test teardown.yml -e confirm=YES
 ```
 
-## Update Deployment
+## Validation gates
+
+Semua var di `group_vars/all.yml` WAJIB terisi. Tidak ada default value. Playbook akan
+fail di `pre_tasks` kalau:
+
+- ada placeholder `CHANGE_THIS_*` yang belum diganti
+- `tenant_id` tidak match `^[a-z0-9-]+$` atau >24 char
+- `app_user` >31 char
+- `jwt_secret` <32 char
+- `app_port` di luar 1024–65535
+- `tls_email`/`backup_rclone_remote`/`backup_verify_staging_db_url` placeholder saat
+  fitur masing-masing di-enable
+
+## Initial admin user
+
+Schema migration tidak seed admin. Setelah `site.yml` selesai, buat admin pertama:
 
 ```sh
-cd /opt/aplikasi-surat-kecamatan-src
-sudo git pull
-go build -o /tmp/server ./cmd/server
-sudo systemctl stop aplikasi-surat-kecamatan
-sudo bash deploy/scripts/migrate.sh   # apply migration baru kalau ada
-sudo cp /tmp/server /opt/aplikasi-surat-kecamatan/server
-sudo chown surat:surat /opt/aplikasi-surat-kecamatan/server
-sudo systemctl start aplikasi-surat-kecamatan
+# Register via API
+curl -X POST https://<app_domain>/api/auth/register \
+    -H 'Content-Type: application/json' \
+    -d '{"email":"admin@<tenant>","password":"<strong_password>","full_name":"<name>"}'
 
-# Frontend
-cd web && npm ci && npm run build
-sudo cp -r dist/* /var/www/aplikasi-surat-kecamatan/
+# Grant role admin via SQL
+PGPASSWORD='<db_password>' psql -h localhost -U <db_user> -d <db_name> <<SQL
+INSERT INTO user_roles (user_id, role_id)
+SELECT u.id, r.id FROM users u, roles r
+WHERE u.email = 'admin@<tenant>' AND r.name = 'admin';
+SQL
 ```
 
-## Monitoring
+## Catatan: runtime config (issue #1)
 
-- App log: `journalctl -u aplikasi-surat-kecamatan -f`
-- Nginx access log: `/var/log/nginx/aplikasi-surat.access.log`
-- Health endpoint: `https://surat.example.com/healthz` — daftarkan ke uptime monitor eksternal (UptimeRobot atau ekuivalen)
-- Backup verify log: `/var/log/aplikasi-surat-verify.log` — alert kalau tidak ada update mingguan
+Role `surat-frontend` me-render `{{ app_dir }}/web/config.json` dari `brand_*` vars.
+Sebelum [#1](https://github.com/idtazkia/aplikasi-surat-kecamatan/issues/1) merge,
+file ini di-render tapi belum dibaca aplikasi — semua tenant tampil dengan branding
+default Vue dist/. Setelah #1 selesai, tenant branding aktif tanpa rebuild dist/.

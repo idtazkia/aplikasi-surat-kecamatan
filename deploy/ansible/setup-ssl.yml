@@ -1,0 +1,20 @@
+---
+# Issue / renew Let's Encrypt cert untuk satu tenant via certbot --nginx.
+# Idempotent. Re-run aman.
+
+- name: Issue TLS certificate for Surat tenant
+  hosts: surat
+  become: true
+
+  pre_tasks:
+    - name: Validate required vars
+      ansible.builtin.import_role:
+        name: validate
+
+    - name: Ensure tls_enabled is true for this play
+      ansible.builtin.fail:
+        msg: "tls_enabled=false di group_vars — hapus play ini atau ubah tls_enabled"
+      when: not (tls_enabled | bool)
+
+  roles:
+    - surat-tls

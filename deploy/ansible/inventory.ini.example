@@ -1,0 +1,8 @@
+# Per-tenant inventory. Each tenant = one host entry under [surat].
+# `ansible_host` is the VPS IP/FQDN. Multiple tenants on the same VPS share
+# `ansible_host` but have distinct group_vars/host_vars.
+#
+# Convention: <inventory_hostname> matches `tenant_id` in group_vars/all.yml.
+
+[surat]
+stmik-tazkia-test ansible_host=103.150.226.185 ansible_user=endymuhardin

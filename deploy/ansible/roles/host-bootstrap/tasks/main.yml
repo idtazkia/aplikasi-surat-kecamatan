@@ -1,0 +1,36 @@
+---
+# Idempotent: install package dependencies yang dibutuhkan tenant Surat di host.
+# TIDAK menginstall PostgreSQL server cluster — operator harus pastikan cluster
+# sudah jalan. Hanya client tools (psql, pg_dump) untuk operasi DB.
+
+- name: Install required apt packages
+  ansible.builtin.apt:
+    name:
+      - nginx
+      - "postgresql-client-{{ postgresql_client_version }}"
+      - python3-psycopg2
+      - certbot
+      - python3-certbot-nginx
+      - rsync
+      - rclone
+      - acl
+      - cron
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Ensure goose binary tersedia di /usr/local/bin
+  ansible.builtin.get_url:
+    url: https://github.com/pressly/goose/releases/download/v3.27.1/goose_linux_x86_64
+    dest: /usr/local/bin/goose
+    mode: "0755"
+    force: false
+
+- name: Ensure ACME webroot dir
+  ansible.builtin.file:
+    path: /var/www/letsencrypt
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0755"
+  when: tls_enabled | bool

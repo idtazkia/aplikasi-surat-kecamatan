@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Surat tenant: {{ tenant_id }}
+# Backup PostgreSQL via pg_dump → rclone ke {{ backup_rclone_remote }}.
+# Tier: daily ({{ backup_retention_daily }}), weekly ({{ backup_retention_weekly }}), monthly ({{ backup_retention_monthly }}).
+
+set -euo pipefail
+
+DB_HOST="{{ db_host }}"
+DB_PORT="{{ db_port }}"
+DB_NAME="{{ db_name }}"
+DB_USER="{{ db_user }}"
+export PGPASSWORD="{{ db_password }}"
+
+REMOTE="{{ backup_rclone_remote }}"
+TMPDIR="$(mktemp -d)"
+TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+DAY_OF_WEEK="$(date -u +%u)"
+DAY_OF_MONTH="$(date -u +%d)"
+
+cleanup() { rm -rf "$TMPDIR"; }
+trap cleanup EXIT
+
+DUMP_FILE="$TMPDIR/${DB_NAME}-${TIMESTAMP}.dump"
+
+echo ">>> [$(date)] Backup start: $DB_NAME → $DUMP_FILE"
+pg_dump --host="$DB_HOST" --port="$DB_PORT" --username="$DB_USER" \
+        --format=custom --compress=9 "$DB_NAME" > "$DUMP_FILE"
+SIZE=$(du -h "$DUMP_FILE" | awk '{print $1}')
+echo ">>> Dump size: $SIZE"
+
+rclone copyto "$DUMP_FILE" "$REMOTE/daily/$(basename "$DUMP_FILE")"
+echo ">>> Uploaded ke daily/"
+
+if [ "$DAY_OF_WEEK" = "7" ]; then
+    rclone copyto "$DUMP_FILE" "$REMOTE/weekly/$(basename "$DUMP_FILE")"
+    echo ">>> Uploaded ke weekly/"
+fi
+
+if [ "$DAY_OF_MONTH" = "01" ]; then
+    rclone copyto "$DUMP_FILE" "$REMOTE/monthly/$(basename "$DUMP_FILE")"
+    echo ">>> Uploaded ke monthly/"
+fi
+
+prune() {
+    local tier="$1"
+    local keep="$2"
+    rclone lsf "$REMOTE/$tier/" | sort -r | tail -n +$((keep + 1)) | while read -r f; do
+        echo ">>> Prune $tier/$f"
+        rclone delete "$REMOTE/$tier/$f"
+    done
+}
+prune daily {{ backup_retention_daily }}
+prune weekly {{ backup_retention_weekly }}
+prune monthly {{ backup_retention_monthly }}
+
+echo ">>> [$(date)] Backup selesai"

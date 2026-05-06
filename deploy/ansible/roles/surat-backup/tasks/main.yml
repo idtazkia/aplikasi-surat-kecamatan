@@ -1,0 +1,49 @@
+---
+# Install backup script + cron untuk satu tenant. Optional verify-backup
+# weekly cron yang restore latest backup ke staging DB dan smoke-test.
+
+- name: Render backup script
+  ansible.builtin.template:
+    src: backup.sh.j2
+    dest: "{{ app_dir }}/bin/backup.sh"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0750"
+
+- name: Install backup cron
+  ansible.builtin.copy:
+    dest: "/etc/cron.d/surat-{{ tenant_id }}-backup"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Surat tenant {{ tenant_id }} — daily backup
+      MAILTO=root
+      {{ backup_cron_minute }} {{ backup_cron_hour }} * * * {{ app_user }} {{ app_dir }}/bin/backup.sh >> {{ app_dir }}/log/backup.log 2>&1
+
+- name: Render verify-backup script
+  ansible.builtin.template:
+    src: verify-backup.sh.j2
+    dest: "{{ app_dir }}/bin/verify-backup.sh"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0750"
+  when: backup_verify_enabled | bool
+
+- name: Install verify-backup cron (weekly)
+  ansible.builtin.copy:
+    dest: "/etc/cron.d/surat-{{ tenant_id }}-verify"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Surat tenant {{ tenant_id }} — weekly backup verify
+      MAILTO=root
+      {{ backup_verify_cron_minute }} {{ backup_verify_cron_hour }} * * {{ backup_verify_cron_weekday }} {{ app_user }} {{ app_dir }}/bin/verify-backup.sh >> {{ app_dir }}/log/verify.log 2>&1
+  when: backup_verify_enabled | bool
+
+- name: Remove verify cron kalau di-disable
+  ansible.builtin.file:
+    path: "/etc/cron.d/surat-{{ tenant_id }}-verify"
+    state: absent
+  when: not (backup_verify_enabled | bool)

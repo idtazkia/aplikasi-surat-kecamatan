@@ -1,0 +1,9 @@
+---
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: restart surat
+  ansible.builtin.systemd:
+    name: "surat-{{ tenant_id }}.service"
+    state: restarted

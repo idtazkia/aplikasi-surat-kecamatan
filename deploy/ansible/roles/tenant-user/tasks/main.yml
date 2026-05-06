@@ -1,0 +1,30 @@
+---
+# Buat per-tenant Linux user (system, no shell login) dan skeleton tenant tree.
+
+- name: Create tenant system user
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+    home: "{{ app_dir }}"
+
+- name: Create tenant root + subdirs
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ app_dir }}", owner: "{{ app_user }}", group: "{{ app_user }}", mode: "0755" }
+    - { path: "{{ app_dir }}/bin", owner: "{{ app_user }}", group: "{{ app_user }}", mode: "0755" }
+    - { path: "{{ app_dir }}/etc", owner: root, group: "{{ app_user }}", mode: "0750" }
+    - { path: "{{ app_dir }}/web", owner: "{{ app_user }}", group: "{{ app_user }}", mode: "0755" }
+    - { path: "{{ app_dir }}/migrations", owner: "{{ app_user }}", group: "{{ app_user }}", mode: "0755" }
+    - { path: "{{ app_dir }}/data", owner: "{{ app_user }}", group: "{{ app_user }}", mode: "0750" }
+    - { path: "{{ app_dir }}/data/attachments", owner: "{{ app_user }}", group: "{{ app_user }}", mode: "0750" }
+    - { path: "{{ app_dir }}/backup", owner: "{{ app_user }}", group: "{{ app_user }}", mode: "0750" }
+    - { path: "{{ app_dir }}/log", owner: "{{ app_user }}", group: "{{ app_user }}", mode: "0750" }
+  loop_control:
+    label: "{{ item.path }}"

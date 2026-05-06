@@ -1,0 +1,80 @@
+---
+# Build binary di laptop (delegate_to: localhost), sync ke tenant, render env
+# dan systemd unit, run goose migrations, start service.
+
+- name: Build server binary di laptop
+  ansible.builtin.command:
+    cmd: make build
+    chdir: "{{ playbook_dir }}/../.."
+  delegate_to: localhost
+  become: false
+  changed_when: true
+
+- name: Verify build artifact ada
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../../bin/server"
+  delegate_to: localhost
+  become: false
+  register: server_binary
+
+- name: Fail kalau binary tidak ter-build
+  ansible.builtin.fail:
+    msg: "bin/server tidak ada setelah make build"
+  when: not server_binary.stat.exists
+
+- name: Sync binary ke tenant
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../../bin/server"
+    dest: "{{ app_dir }}/bin/server"
+    rsync_opts:
+      - "--chown={{ app_user }}:{{ app_user }}"
+      - "--chmod=F0755"
+  notify: restart surat
+
+- name: Sync schema migrations ke tenant
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../../db/migrations/schema/"
+    dest: "{{ app_dir }}/migrations/"
+    delete: true
+    rsync_opts:
+      - "--chown={{ app_user }}:{{ app_user }}"
+
+- name: Render env file
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ app_dir }}/etc/env"
+    owner: root
+    group: "{{ app_user }}"
+    mode: "0640"
+  no_log: true
+  notify: restart surat
+
+- name: Render systemd unit
+  ansible.builtin.template:
+    src: surat.service.j2
+    dest: "/etc/systemd/system/surat-{{ tenant_id }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart surat
+
+- name: Flush handlers (apply systemd changes sebelum migrate)
+  ansible.builtin.meta: flush_handlers
+
+- name: Run goose schema migrations
+  ansible.builtin.command:
+    cmd: >-
+      /usr/local/bin/goose -dir {{ app_dir }}/migrations postgres
+      "host={{ db_host }} port={{ db_port }} user={{ db_user }} password={{ db_password }}
+      dbname={{ db_name }} sslmode=disable" up
+  changed_when: true
+  no_log: true
+
+- name: Enable and start surat service
+  ansible.builtin.systemd:
+    name: "surat-{{ tenant_id }}.service"
+    state: started
+    enabled: true
+    daemon_reload: true

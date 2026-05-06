@@ -1,0 +1,108 @@
+---
+# Hapus tenant dari host: stop service, hapus systemd unit, vhost, db, role,
+# Linux user, app dir. Dijalankan dengan: ansible-playbook teardown.yml -e confirm=YES
+#
+# DESTRUCTIVE. Backup dump + attachments di-tar ke /root/teardown-<tenant_id>-<ts>.tar.gz
+# sebelum delete, sebagai safety net.
+
+- name: Teardown Surat tenant
+  hosts: surat
+  become: true
+
+  pre_tasks:
+    - name: Validate required vars
+      ansible.builtin.import_role:
+        name: validate
+
+    - name: Confirm destructive intent
+      ansible.builtin.fail:
+        msg: "Pass -e confirm=YES untuk konfirmasi teardown"
+      when: confirm | default('') != 'YES'
+
+  tasks:
+    - name: Snapshot DB sebelum drop
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          ts=$(date -u +%Y%m%dT%H%M%SZ)
+          out=/root/teardown-{{ tenant_id }}-${ts}.tar.gz
+          tmp=$(mktemp -d)
+          PGPASSWORD='{{ db_password }}' pg_dump -h {{ db_host }} -p {{ db_port }} \
+              -U {{ db_user }} {{ db_name }} --format=custom > "$tmp/db.dump"
+          tar czf "$out" -C "$tmp" db.dump -C {{ app_dir }} data 2>/dev/null || tar czf "$out" -C "$tmp" db.dump
+          rm -rf "$tmp"
+          echo "$out"
+        executable: /bin/bash
+      register: snapshot_path
+
+    - name: Stop and disable systemd unit
+      ansible.builtin.systemd:
+        name: "surat-{{ tenant_id }}.service"
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Remove systemd unit
+      ansible.builtin.file:
+        path: "/etc/systemd/system/surat-{{ tenant_id }}.service"
+        state: absent
+
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Remove nginx vhost (enabled + available)
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/etc/nginx/sites-enabled/surat-{{ tenant_id }}.conf"
+        - "/etc/nginx/sites-available/surat-{{ tenant_id }}.conf"
+      notify: reload nginx
+
+    - name: Drop database
+      community.postgresql.postgresql_db:
+        name: "{{ db_name }}"
+        state: absent
+        login_unix_socket: /var/run/postgresql
+      become_user: postgres
+
+    - name: Drop role
+      community.postgresql.postgresql_user:
+        name: "{{ db_user }}"
+        state: absent
+        login_unix_socket: /var/run/postgresql
+      become_user: postgres
+
+    - name: Remove cron jobs
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/etc/cron.d/surat-{{ tenant_id }}-backup"
+        - "/etc/cron.d/surat-{{ tenant_id }}-verify"
+
+    - name: Remove app directory
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: absent
+
+    - name: Remove Linux user
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        state: absent
+        remove: true
+      failed_when: false
+
+    - name: Teardown summary
+      ansible.builtin.debug:
+        msg:
+          - "Teardown selesai untuk tenant {{ tenant_id }}"
+          - "Snapshot DB + attachments tersimpan di: {{ snapshot_path.stdout_lines[-1] }}"
+          - "TLS cert TIDAK dihapus — jalankan manual: certbot delete --cert-name {{ app_domain }}"
+
+  handlers:
+    - name: reload nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded

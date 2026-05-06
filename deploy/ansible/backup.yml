@@ -1,0 +1,28 @@
+---
+# Trigger backup manual on-demand untuk satu tenant.
+# Cron schedule di-set oleh role surat-backup di site.yml.
+
+- name: Run on-demand backup for Surat tenant
+  hosts: surat
+  become: true
+
+  pre_tasks:
+    - name: Validate required vars
+      ansible.builtin.import_role:
+        name: validate
+
+    - name: Ensure backup_enabled is true
+      ansible.builtin.fail:
+        msg: "backup_enabled=false — tenant tidak dikonfigurasi untuk backup"
+      when: not (backup_enabled | bool)
+
+  tasks:
+    - name: Execute backup script
+      ansible.builtin.command:
+        cmd: "{{ app_dir }}/bin/backup.sh"
+      become_user: "{{ app_user }}"
+      register: backup_result
+
+    - name: Show backup output
+      ansible.builtin.debug:
+        var: backup_result.stdout_lines

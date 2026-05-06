@@ -1,0 +1,22 @@
+---
+# Issue Let's Encrypt cert via certbot --nginx (uses existing nginx for HTTP-01,
+# does NOT modify our vhost templates). Setelah cert ada, re-render nginx-vhost
+# supaya pindah ke template HTTPS.
+
+- name: Cek apakah cert sudah ter-issue
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ app_domain }}/fullchain.pem"
+  register: existing_cert
+
+- name: Issue cert via certbot --nginx (certonly, no config modification)
+  ansible.builtin.command:
+    cmd: >-
+      certbot certonly --nginx -d {{ app_domain }}
+      --non-interactive --agree-tos --email {{ tls_email }}
+  when: not existing_cert.stat.exists
+  register: certbot_result
+  changed_when: "'Successfully received certificate' in certbot_result.stdout or 'Successfully renewed certificate' in certbot_result.stdout"
+
+- name: Re-render nginx vhost dengan template HTTPS
+  ansible.builtin.import_role:
+    name: nginx-vhost

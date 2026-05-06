@@ -1,0 +1,84 @@
+# Per-tenant configuration template. Copy ke deploy repo
+# (clients/<tenant>/group_vars/all.yml) lalu isi semua placeholder.
+#
+# Semua var di file ini WAJIB di-set. Tidak ada default value — playbook
+# akan gagal di pre_tasks kalau ada placeholder atau undefined.
+
+# ---------------- Tenant identity ----------------
+# Slug, dipakai di nama Linux user, systemd unit, path. Hanya [a-z0-9-], ≤24 char.
+tenant_id: CHANGE_THIS_TENANT_ID
+
+# Linux system user (no shell, no home login). Konvensi: surat-<tenant_id> tanpa
+# panjang lebih dari 31 char.
+app_user: CHANGE_THIS_APP_USER
+
+# Tenant root directory. Konvensi: /opt/surat/<tenant_id>.
+# Berisi: bin/, web/, etc/, data/, migrations/, backup/.
+app_dir: CHANGE_THIS_APP_DIR
+
+# ---------------- Application ----------------
+# TCP port backend Go (loopback). Harus unik per tenant di shared VPS.
+app_port: CHANGE_THIS_APP_PORT
+
+# FQDN tenant. Harus sudah punya A-record ke ansible_host.
+app_domain: CHANGE_THIS_APP_DOMAIN
+
+# Secret JWT (min 32 byte). Generate: openssl rand -base64 32
+jwt_secret: CHANGE_THIS_JWT_SECRET
+
+# Log level: debug | info | warn | error
+log_level: info
+
+# Student-mode response (_edu block). HARUS false di production.
+student_mode_enabled: false
+
+# ---------------- Database ----------------
+# Cluster yang dipakai. Ansible tidak menginstall PostgreSQL —
+# operator harus pastikan cluster sudah jalan dan superuser `postgres`
+# accessible via local socket.
+db_host: localhost
+db_port: 5432
+db_name: CHANGE_THIS_DB_NAME
+db_user: CHANGE_THIS_DB_USER
+db_password: CHANGE_THIS_DB_PASSWORD
+
+# PostgreSQL client major version yang harus ter-install di host
+# (pg_dump, pg_restore, psql). Wajib match server cluster version.
+postgresql_client_version: "16"
+
+# ---------------- Branding (runtime config.json) ----------------
+# Dipakai role surat-frontend untuk render config.json per tenant.
+# Catatan: efektif setelah issue idtazkia/aplikasi-surat-kecamatan#1 selesai
+# (frontend fetch /config.json runtime). Sebelum issue itu merge, file ini
+# tetap di-render tapi belum dibaca aplikasi.
+brand_app_name: CHANGE_THIS_APP_NAME
+brand_institution: CHANGE_THIS_INSTITUTION_NAME
+brand_primary: "#204397"
+brand_primary_hover: "#1a3680"
+brand_accent: "#c8475b"
+brand_logo_url: "/branding/logo.svg"
+
+# ---------------- TLS ----------------
+# Set false kalau VPS di belakang reverse proxy lain yang sudah handle TLS.
+tls_enabled: true
+tls_email: CHANGE_THIS_TLS_EMAIL
+
+# ---------------- Backup ----------------
+# Set false untuk skip role surat-backup (testing tenant boleh tanpa backup).
+backup_enabled: false
+# WAJIB kalau backup_enabled=true. Format rclone remote, mis. "backup:surat-<tenant>".
+# Operator harus sudah `rclone config` di host sebelum role jalan.
+backup_rclone_remote: CHANGE_THIS_BACKUP_REMOTE
+backup_cron_hour: "2"
+backup_cron_minute: "0"
+backup_retention_daily: 7
+backup_retention_weekly: 4
+backup_retention_monthly: 12
+
+# ---------------- Backup verification (weekly) ----------------
+backup_verify_enabled: false
+# WAJIB kalau backup_verify_enabled=true. Staging DB url untuk restore + smoke test.
+backup_verify_staging_db_url: CHANGE_THIS_STAGING_DB_URL
+backup_verify_cron_hour: "6"
+backup_verify_cron_minute: "0"
+backup_verify_cron_weekday: "1"
