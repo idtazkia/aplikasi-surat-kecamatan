@@ -92,21 +92,38 @@ fail di `pre_tasks` kalau:
 - `tls_email`/`backup_rclone_remote`/`backup_verify_staging_db_url` placeholder saat
   fitur masing-masing di-enable
 
-## Initial admin user
+## User provisioning
 
-Schema migration tidak seed admin. Setelah `site.yml` selesai, buat admin pertama:
+App tidak punya endpoint registrasi publik (hanya `/api/auth/login` + `/api/auth/refresh`).
+Penyediaan user dilakukan langsung lewat SQL.
+
+### Testing tenant — `seed_demo: true`
+
+Demo-seed apply 5 roles + 14 permissions + 6 demo users dengan password `demo123`:
+`staf1`, `staf2`, `camat`, `admin`, `student`, `auditor`. Cukup login dan jalan.
+
+### Production tenant — `seed_demo: false`
+
+Schema migration belum seed roles+permissions (saat ini ada di `db/migrations/demo-seed/`),
+sehingga production tenant masih perlu seed RBAC manual sebelum tambah user. Pattern
+sementara (sampai upstream pisahkan core RBAC dari demo data):
 
 ```sh
-# Register via API
-curl -X POST https://<app_domain>/api/auth/register \
-    -H 'Content-Type: application/json' \
-    -d '{"email":"admin@<tenant>","password":"<strong_password>","full_name":"<name>"}'
+# 1. Apply roles + permissions saja (skip user/data)
+PGPASSWORD='<db_password>' psql -h localhost -U <db_user> -d <db_name> \
+    -f db/migrations/demo-seed/0001_seed_roles_permissions.sql \
+    -f db/migrations/demo-seed/0009_seed_auditor_role.sql
+# Hapus user demo yang ikut ter-insert dari 0009:
+PGPASSWORD='<db_password>' psql -h localhost -U <db_user> -d <db_name> -c \
+    "DELETE FROM users WHERE id LIKE '00000000-0000-0000-0006-%';"
 
-# Grant role admin via SQL
+# 2. Insert real admin (bcrypt hash via htpasswd atau Python)
+ADMIN_PW_HASH=$(python3 -c "import bcrypt; print(bcrypt.hashpw(b'<strong_password>', bcrypt.gensalt(10)).decode())")
 PGPASSWORD='<db_password>' psql -h localhost -U <db_user> -d <db_name> <<SQL
+INSERT INTO users (id, username, full_name, email, password_hash, is_active)
+VALUES (gen_random_uuid(), 'admin', '<full name>', '<email>', '$ADMIN_PW_HASH', TRUE);
 INSERT INTO user_roles (user_id, role_id)
-SELECT u.id, r.id FROM users u, roles r
-WHERE u.email = 'admin@<tenant>' AND r.name = 'admin';
+SELECT u.id, r.id FROM users u, roles r WHERE u.username = 'admin' AND r.code = 'admin';
 SQL
 ```
 
