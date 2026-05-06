@@ -73,6 +73,27 @@
   changed_when: true
   no_log: true
 
+- name: Sync demo-seed migrations ke tenant (seed_demo=true)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../../db/migrations/demo-seed/"
+    dest: "{{ app_dir }}/migrations-demo-seed/"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0644"
+    directory_mode: "0755"
+  when: seed_demo | bool
+
+- name: Run goose demo-seed migrations (separate version table)
+  ansible.builtin.command:
+    cmd: >-
+      /usr/local/bin/goose -dir {{ app_dir }}/migrations-demo-seed
+      -table goose_demo_seed_version postgres
+      "host={{ db_host }} port={{ db_port }} user={{ db_user }} password={{ db_password }}
+      dbname={{ db_name }} sslmode=disable" up
+  when: seed_demo | bool
+  changed_when: true
+  no_log: true
+
 - name: Enable and start surat service
   ansible.builtin.systemd:
     name: "surat-{{ tenant_id }}.service"

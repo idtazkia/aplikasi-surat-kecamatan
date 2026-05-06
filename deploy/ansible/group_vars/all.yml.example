@@ -32,6 +32,15 @@ log_level: info
 # Student-mode response (_edu block). HARUS false di production.
 student_mode_enabled: false
 
+# Apply demo-seed migrations setelah schema (db/migrations/demo-seed/).
+# True hanya untuk testing/demo tenant. Berisi:
+#   - 5 roles + permission mapping (WAJIB untuk RBAC bekerja — saat ini roles+
+#     permissions hanya ada di demo-seed, lihat issue di app repo)
+#   - 6 demo users (staf1, staf2, camat, admin, student, auditor) password demo123
+#   - sample instansi, klasifikasi, sifat, surat, disposisi
+# HARUS false di production — pakai script seed-roles + manual user provisioning.
+seed_demo: false
+
 # ---------------- Database ----------------
 # Cluster yang dipakai. Ansible tidak menginstall PostgreSQL —
 # operator harus pastikan cluster sudah jalan dan superuser `postgres`

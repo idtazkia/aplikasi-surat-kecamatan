@@ -62,3 +62,8 @@
   when:
     - backup_verify_enabled | bool
     - backup_verify_staging_db_url is not defined or backup_verify_staging_db_url | string == 'CHANGE_THIS_STAGING_DB_URL'
+
+- name: Validate seed_demo defined
+  ansible.builtin.fail:
+    msg: "seed_demo undefined — set explicit true (testing tenant) atau false (production)"
+  when: seed_demo is not defined
