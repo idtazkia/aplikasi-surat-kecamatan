@@ -21,10 +21,10 @@
     msg: "web/dist/index.html tidak ada setelah make web-build"
   when: not dist_index.stat.exists
 
-- name: Clear stale dist artifacts (preserve config.json)
+- name: Clear stale dist artifacts
   ansible.builtin.shell:
     cmd: |
-      find {{ app_dir }}/web -mindepth 1 -maxdepth 1 ! -name 'config.json' -exec rm -rf {} +
+      find {{ app_dir }}/web -mindepth 1 -maxdepth 1 -exec rm -rf {} +
     executable: /bin/bash
   changed_when: true
 
@@ -37,10 +37,7 @@
     mode: "0644"
     directory_mode: "0755"
 
-- name: Render runtime config.json
-  ansible.builtin.template:
-    src: config.json.j2
-    dest: "{{ app_dir }}/web/config.json"
-    owner: "{{ app_user }}"
-    group: "{{ app_user }}"
-    mode: "0644"
+- name: Hapus residual config.json (legacy pre-issue#1)
+  ansible.builtin.file:
+    path: "{{ app_dir }}/web/config.json"
+    state: absent

@@ -55,17 +55,18 @@ db_password: CHANGE_THIS_DB_PASSWORD
 # (pg_dump, pg_restore, psql). Wajib match server cluster version.
 postgresql_client_version: "16"
 
-# ---------------- Branding (runtime config.json) ----------------
-# Dipakai role surat-frontend untuk render config.json per tenant.
-# Catatan: efektif setelah issue idtazkia/aplikasi-surat-kecamatan#1 selesai
-# (frontend fetch /config.json runtime). Sebelum issue itu merge, file ini
-# tetap di-render tapi belum dibaca aplikasi.
+# ---------------- Branding ----------------
+# Di-set sebagai TENANT_* env vars di {{ app_dir }}/etc/env. Backend Go
+# read saat startup (fail-fast kalau ada yang kosong atau hex invalid),
+# expose lewat GET /api/config (no auth) untuk dipakai frontend boot-time.
+# Hex color WAJIB format #RRGGBB (lowercase atau uppercase, 6 digit).
 brand_app_name: CHANGE_THIS_APP_NAME
 brand_institution: CHANGE_THIS_INSTITUTION_NAME
 brand_primary: "#204397"
 brand_primary_hover: "#1a3680"
 brand_accent: "#c8475b"
-brand_logo_url: "/branding/logo.svg"
+# Optional logo URL — kosongkan kalau tidak punya. Backend menerima empty.
+brand_logo_url: ""
 
 # ---------------- TLS ----------------
 # Set false kalau VPS di belakang reverse proxy lain yang sudah handle TLS.

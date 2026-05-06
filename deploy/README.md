@@ -127,9 +127,11 @@ SELECT u.id, r.id FROM users u, roles r WHERE u.username = 'admin' AND r.code = 
 SQL
 ```
 
-## Catatan: runtime config (issue #1)
+## Tenant branding (runtime)
 
-Role `surat-frontend` me-render `{{ app_dir }}/web/config.json` dari `brand_*` vars.
-Sebelum [#1](https://github.com/idtazkia/aplikasi-surat-kecamatan/issues/1) merge,
-file ini di-render tapi belum dibaca aplikasi — semua tenant tampil dengan branding
-default Vue dist/. Setelah #1 selesai, tenant branding aktif tanpa rebuild dist/.
+Backend baca `TENANT_*` env vars saat startup dan expose lewat `GET /api/config`
+(no auth). Frontend fetch endpoint ini di boot. Semua tenant pakai single
+`web/dist/` artifact — branding bedanya cuma di env file, no rebuild per tenant.
+
+Hex color WAJIB format `#RRGGBB`. Backend fail-fast saat startup kalau format
+invalid; Ansible validate role juga gate ini di pre_tasks.

@@ -67,3 +67,14 @@
   ansible.builtin.fail:
     msg: "seed_demo undefined — set explicit true (testing tenant) atau false (production)"
   when: seed_demo is not defined
+
+- name: Validate brand hex colors
+  ansible.builtin.fail:
+    msg: "{{ item.name }}={{ vars[item.name] }} bukan hex color (mis. '#204397'). Backend akan reject saat startup."
+  when: not (vars[item.name] | regex_search('^#[0-9a-fA-F]{6}$'))
+  loop:
+    - { name: brand_primary }
+    - { name: brand_primary_hover }
+    - { name: brand_accent }
+  loop_control:
+    label: "{{ item.name }}"
